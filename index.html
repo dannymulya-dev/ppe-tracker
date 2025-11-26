@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafetyFirst PPE Tracker</title>
+    
+    <!-- 1. Libraries -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
+    
+    <!-- 2. Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* Recharts Override */
+        .recharts-wrapper { width: 100% !important; }
+    </style>
+    
+    <!-- 3. Tailwind Config -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        safety: { 50: '#fff7ed', 100: '#ffedd5', 500: '#f97316', 600: '#ea580c', 700: '#c2410c' }
+                    }
+                }
+            }
+        }
+    </script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "vite": "https://aistudiocdn.com/vite@^7.2.4",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+  }
+}
+</script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <!-- 4. Application Logic -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } = Recharts;
+
+        // --- CONSTANTS & MOCK DB ---
+        const STORAGE_KEYS = {
+            INVENTORY: 'ppe_inventory',
+            TRANSACTIONS: 'ppe_transactions',
+            SETTINGS: 'ppe_settings'
+        };
+
+        const INITIAL_INVENTORY = [
+            { id: '1', name: 'Safety Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
+            { id: '2', name: 'Safety Helmet (Yellow)', category: 'Head', quantity: 12, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
+            { id: '3', name: 'High-Vis Vest (L)', category: 'Apparel', quantity: 8, unit: 'pcs', threshold: 15, lastUpdated: new Date().toISOString() },
+            { id: '4', name: 'High-Vis Vest (XL)', category: 'Apparel', quantity: 30, unit: 'pcs', threshold: 15, lastUpdated: new Date().toISOString() },
+            { id: '5', name: 'Cut-Resistant Gloves', category: 'Hand', quantity: 120, unit: 'pairs', threshold: 50, lastUpdated: new Date().toISOString() },
+            { id: '6', name: 'Safety Goggles', category: 'Eye', quantity: 35, unit: 'pcs', threshold: 20, lastUpdated: new Date().toISOString() },
+            { id: '7', name: 'Ear Plugs (Dispenser)', category: 'Hearing', quantity: 5, unit: 'box', threshold: 2, lastUpdated: new Date().toISOString() },
+            { id: '8', name: 'Steel Toe Boots (Sz 10)', category: 'Foot', quantity: 4, unit: 'pairs', threshold: 5, lastUpdated: new Date().toISOString() },
+        ];
+
+        // --- SERVICES ---
+
+        // Local Storage Service
+        const getSettings = () => {
+            const stored = localStorage.getItem(STORAGE_KEYS.SETTINGS);
+            return stored ? JSON.parse(stored) : { googleSheetUrl: '', apiKey: '', lastSyncTime: null };
+        };
+
+        const saveSettings = (settings) => {
+            localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
+        };
+
+        const getInventory = () => {
+            const stored = localStorage.getItem(STORAGE_KEYS.INVENTORY);
+            if (!stored) {
+                localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(INITIAL_INVENTORY));
+                return INITIAL_INVENTORY;
+            }
+            return JSON.parse(stored);
+        };
+
+        const getTransactions = () => {
+            const stored = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
+            return stored ? JSON.parse(stored) : [];
+        };
+
+        const saveTransaction = (transaction) => {
+            const transactions = getTransactions();
+            transactions.unshift(transaction);
+            localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+        };
+
+        const updateInventoryStock = (itemsToDeduct) => {
+            const inventory = getInventory();
+            itemsToDeduct.forEach(({ itemId, quantity }) => {
+                const itemIndex = inventory.findIndex((i) => i.id === itemId);
+                if (itemIndex > -1) {
+                    inventory[itemIndex].quantity = Math.max(0, inventory[itemIndex].quantity - quantity);
+                    inventory[itemIndex].lastUpdated = new Date().toISOString();
+                }
+            });
+            localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
+            return inventory;
+        };
+
+        const getBackupData = () => ({
+            inventory: getInventory(),
+            transactions: getTransactions(),
+            backupDate: new Date().toISOString()
+        });
+
+        const restoreBackupData = (jsonData) => {
+            if (jsonData.inventory) localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(jsonData.inventory));
+            if (jsonData.transactions) localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(jsonData.transactions));
+        };
+
+        // Gemini Service (REST API)
+        const parseCheckoutRequest = async (prompt, currentInventory) => {
+            const settings = getSettings();
+            if (!settings.apiKey) throw new Error("API Key missing");
+
+            const inventoryListString = currentInventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
+            const systemInstruction = `
+                You are an inventory assistant. Extract structured data from the user request.
+                Available Inventory:
+                ${inventoryListString}
+                
+                Instructions:
+                1. Identify employee name.
+                2. Map items to exact inventory names.
+                3. Return JSON only:
+                {
+                    "employeeName": "string",
+                    "items": [{"itemNameTarget": "exact name from list", "quantity": number}],
+                    "confidence": number 0-1
+                }
+            `;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        system_instruction: { parts: [{ text: systemInstruction }] },
+                        generationConfig: { response_mime_type: "application/json" }
+                    })
+                });
+                
+                const data = await response.json();
+                if(data.error) throw new Error(data.error.message);
+                const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+                return jsonText ? JSON.parse(jsonText) : null;
+            } catch (error) {
+                console.error("Gemini Error:", error);
+                throw error;
+            }
+        };
+
+        const generateInventoryInsights = async (inventory) => {
+            const settings = getSettings();
+            if (!settings.apiKey) return "Please enter your AI API Key in Settings to see insights.";
+
+            const prompt = `Analyze this inventory: ${JSON.stringify(inventory.map(i => ({n: i.name, q: i.quantity, t: i.threshold})))}. Provide a 2 sentence summary for a supervisor about stock health.`;
+
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "No insights available.";
+            } catch (e) {
+                return "AI Insight unavailable (Check API Key).";
+            }
+        };
+
+        // Google Sheets Service
+        const syncWithSheet = async (inventory, transactions) => {
+            const settings = getSettings();
+            if (!settings.googleSheetUrl) return { success: false, message: "No Google Sheet URL." };
+
+            try {
+                const response = await fetch(settings.googleSheetUrl, {
+                    method: 'POST',
+                    headers: { "Content-Type": "text/plain;charset=utf-8" },
+                    body: JSON.stringify({ action: 'SYNC', inventory, transactions })
+                });
+                const result = await response.json();
+                if(result.status === 'success') {
+                    saveSettings({ ...settings, lastSyncTime: new Date().toISOString() });
+                    return { success: true };
+                }
+                return { success: false, message: "Sync failed" };
+            } catch (e) {
+                return { success: false, message: "Connection error" };
+            }
+        };
+
+        const fetchFromSheet = async () => {
+            const settings = getSettings();
+            if (!settings.googleSheetUrl) return { inventory: null, transactions: null };
+            try {
+                const response = await fetch(`${settings.googleSheetUrl}?action=GET_DATA`);
+                const data = await response.json();
+                return data.status === 'success' ? data : { inventory: null, transactions: null };
+            } catch (e) {
+                return { inventory: null, transactions: null };
+            }
+        };
+
+        // --- COMPONENTS ---
+
+        const Dashboard = ({ inventory, transactions }) => {
+            const [insight, setInsight] = useState('Loading AI insights...');
+
+            useEffect(() => {
+                generateInventoryInsights(inventory).then(setInsight);
+            }, [inventory]);
+
+            const lowStockCount = inventory.filter(i => i.quantity <= i.threshold).length;
+            const totalItems = inventory.reduce((acc, curr) => acc + curr.quantity, 0);
+            
+            const chartData = inventory.map(item => ({
+                name: item.name.split('(')[0].trim(),
+                quantity: item.quantity,
+                threshold: item.threshold,
+                isLow: item.quantity <= item.threshold
+            }));
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <h3 className="text-slate-500 text-xs font-bold uppercase">Total Stock</h3>
+                            <p className="text-3xl font-bold text-slate-800 mt-2">{totalItems}</p>
+                        </div>
+                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                            <h3 className="text-slate-500 text-xs font-bold uppercase">Low Stock Alerts</h3>
+                            <p className={`text-3xl font-bold mt-2 ${lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{lowStockCount}</p>
+                        </div>
+                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-xl shadow-md text-white">
+                            <h3 className="text-indigo-200 text-xs font-bold uppercase mb-2">AI Insight</h3>
+                            <p className="text-sm font-light italic opacity-90">{insight}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100 h-80">
+                         <h3 className="text-lg font-semibold text-slate-800 mb-4">Stock Levels</h3>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={chartData}>
+                                <XAxis dataKey="name" fontSize={10} tickLine={false} axisLine={false} interval={0} angle={-15} textAnchor="end" height={60} />
+                                <YAxis fontSize={12} tickLine={false} axisLine={false} />
+                                <Tooltip cursor={{ fill: 'transparent' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)' }} />
+                                <Bar dataKey="quantity" radius={[4, 4, 0, 0]}>
+                                    {chartData.map((entry, index) => (
+                                        <Cell key={`cell-${index}`} fill={entry.isLow ? '#ef4444' : '#3b82f6'} />
+                                    ))}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            );
+        };
+
+        const CheckoutForm = ({ inventory, onSubmit }) => {
+            const [activeTab, setActiveTab] = useState('manual');
+            const [isLoading, setIsLoading] = useState(false);
+            const [employeeName, setEmployeeName] = useState('');
+            const [selectedItemId, setSelectedItemId] = useState('');
+            const [quantity, setQuantity] = useState(1);
+            const [aiPrompt, setAiPrompt] = useState('');
+            const [aiError, setAiError] = useState('');
+
+            const handleManualSubmit = (e) => {
+                e.preventDefault();
+                if (!employeeName || !selectedItemId || quantity <= 0) return;
+                onSubmit(employeeName, [{ itemId: selectedItemId, quantity }], 'MANUAL');
+                setEmployeeName(''); setSelectedItemId(''); setQuantity(1);
+            };
+
+            const handleAiSubmit = async (e) => {
+                e.preventDefault();
+                setIsLoading(true); setAiError('');
+                try {
+                    const result = await parseCheckoutRequest(aiPrompt, inventory);
+                    if (!result || !result.items || result.items.length === 0) {
+                        throw new Error("Could not understand request.");
+                    }
+                    const itemsToCheckout = [];
+                    const notFound = [];
+                    result.items.forEach(pItem => {
+                        const invItem = inventory.find(i => i.name === pItem.itemNameTarget);
+                        if (invItem) itemsToCheckout.push({ itemId: invItem.id, quantity: pItem.quantity });
+                        else notFound.push(pItem.itemNameTarget);
+                    });
+
+                    if (notFound.length > 0) throw new Error(`Items not found: ${notFound.join(', ')}`);
+                    
+                    onSubmit(result.employeeName || "Unknown", itemsToCheckout, 'AI');
+                    setAiPrompt('');
+                } catch (err) {
+                    if (err.message.includes("API Key")) setAiError("Missing API Key. Go to Settings.");
+                    else setAiError(err.message || "Error processing request.");
+                } finally {
+                    setIsLoading(false);
+                }
+            };
+
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="flex border-b border-slate-200">
+                        <button onClick={() => setActiveTab('manual')} className={`flex-1 py-3 text-sm font-medium ${activeTab === 'manual' ? 'text-safety-600 border-b-2 border-safety-500' : 'text-slate-500'}`}>Manual</button>
+                        <button onClick={() => setActiveTab('ai')} className={`flex-1 py-3 text-sm font-medium ${activeTab === 'ai' ? 'text-indigo-600 border-b-2 border-indigo-500' : 'text-slate-500'}`}>AI Assistant</button>
+                    </div>
+                    <div className="p-6">
+                        {activeTab === 'manual' ? (
+                            <form onSubmit={handleManualSubmit} className="space-y-4">
+                                <input type="text" placeholder="Employee Name" className="w-full p-2 border rounded" value={employeeName} onChange={e => setEmployeeName(e.target.value)} required />
+                                <div className="flex gap-2">
+                                    <select className="flex-1 p-2 border rounded" value={selectedItemId} onChange={e => setSelectedItemId(e.target.value)} required>
+                                        <option value="">Select Item...</option>
+                                        {inventory.map(i => <option key={i.id} value={i.id} disabled={i.quantity===0}>{i.name}</option>)}
+                                    </select>
+                                    <input type="number" min="1" className="w-20 p-2 border rounded" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} required />
+                                </div>
+                                <button type="submit" className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Checkout</button>
+                            </form>
+                        ) : (
+                            <form onSubmit={handleAiSubmit} className="space-y-4">
+                                <p className="text-xs text-indigo-600 bg-indigo-50 p-2 rounded">Try: "Mike took 2 helmets and a vest"</p>
+                                <textarea className="w-full p-2 border rounded h-20" placeholder="Type here..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} required></textarea>
+                                {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+                                <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">
+                                    {isLoading ? 'Processing...' : 'Process with AI'}
+                                </button>
+                            </form>
+                        )}
+                    </div>
+                </div>
+            );
+        };
+
+        const InventoryTable = ({ inventory }) => (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <table className="w-full text-left text-sm text-slate-600">
+                    <thead className="bg-slate-100 text-xs font-bold uppercase text-slate-700">
+                        <tr><th className="px-6 py-3">Item</th><th className="px-6 py-3">Qty</th><th className="px-6 py-3">Status</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                        {inventory.map(item => (
+                            <tr key={item.id} className="hover:bg-slate-50">
+                                <td className="px-6 py-4 font-medium">{item.name}</td>
+                                <td className="px-6 py-4">{item.quantity} {item.unit}</td>
+                                <td className="px-6 py-4">
+                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.quantity <= item.threshold ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
+                                        {item.quantity <= item.threshold ? 'Low' : 'Good'}
+                                    </span>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        );
+
+        const HistoryLog = ({ transactions }) => (
+            <div className="space-y-3">
+                {transactions.length === 0 && <p className="text-slate-500 text-center py-8">No history yet.</p>}
+                {transactions.map(tx => (
+                    <div key={tx.id} className="bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center">
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-slate-800">{tx.employeeName}</span>
+                                <span className="text-[10px] uppercase border px-1 rounded text-slate-500">{tx.method}</span>
+                            </div>
+                            <p className="text-xs text-slate-400">{new Date(tx.timestamp).toLocaleString()}</p>
+                        </div>
+                        <div className="text-right text-sm">
+                            {tx.items.map((i, idx) => <div key={idx}><span className="text-safety-600 font-bold">-{i.quantity}</span> {i.itemName}</div>)}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+
+        const Settings = ({ onSync }) => {
+            const [settings, setLocalSettings] = useState({ googleSheetUrl: '', apiKey: '', lastSyncTime: null });
+            const [status, setStatus] = useState('');
+            const fileInputRef = useRef(null);
+
+            useEffect(() => {
+                setLocalSettings(getSettings());
+            }, []);
+
+            const handleSave = () => {
+                saveSettings(settings);
+                setStatus('Saved!');
+                setTimeout(() => setStatus(''), 2000);
+            };
+
+            const handleDownload = () => {
+                const data = JSON.stringify(getBackupData(), null, 2);
+                const blob = new Blob([data], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url; a.download = 'backup.json';
+                a.click();
+            };
+
+            const handleRestore = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        restoreBackupData(JSON.parse(e.target.result));
+                        onSync(); setStatus('Restored!');
+                    } catch(err) { setStatus('Error file'); }
+                };
+                reader.readAsText(file);
+            };
+            
+            // This is the code the user needs to copy to Google Apps Script
+            const GOOGLE_SCRIPT = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var inv=[];var tx=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),employeeName:r[1],items:[{itemName:r[2],quantity:0,itemId:"0"}],timestamp:r[3],method:r[4]}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx})).setMimeType(ContentService.MimeType.JSON);}`;
+
+            return (
+                <div className="bg-white p-6 rounded-xl border space-y-8 animate-fade-in">
+                    <section>
+                        <h3 className="font-bold text-lg mb-4">1. Gemini AI Key (Required for AI)</h3>
+                        <p className="text-sm text-slate-500 mb-2">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-indigo-600 underline">aistudio.google.com</a></p>
+                        <input type="password" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste API Key here..." value={settings.apiKey} onChange={e => setLocalSettings({...settings, apiKey: e.target.value})} />
+                    </section>
+
+                    <section>
+                        <h3 className="font-bold text-lg mb-4">2. Google Sheet Connection</h3>
+                        <p className="text-sm text-slate-500 mb-2">Apps Script Code (Copy this to Extensions > Apps Script):</p>
+                        <textarea readOnly className="w-full h-24 p-2 bg-slate-800 text-slate-300 text-xs font-mono rounded mb-2" value={GOOGLE_SCRIPT}></textarea>
+                        <input type="text" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste Web App URL here..." value={settings.googleSheetUrl} onChange={e => setLocalSettings({...settings, googleSheetUrl: e.target.value})} />
+                    </section>
+                    
+                    <div className="flex gap-4">
+                        <button onClick={handleSave} className="bg-safety-600 text-white px-6 py-2 rounded font-bold hover:bg-safety-700">Save Settings</button>
+                        {status && <span className="text-green-600 py-2">{status}</span>}
+                    </div>
+
+                    <div className="pt-8 border-t">
+                        <h3 className="font-bold text-lg mb-4">Data Backup</h3>
+                        <div className="flex gap-4">
+                            <button onClick={handleDownload} className="border px-4 py-2 rounded hover:bg-slate-50">Download Backup</button>
+                            <label className="border px-4 py-2 rounded hover:bg-slate-50 cursor-pointer">
+                                Restore Backup <input type="file" className="hidden" accept=".json" onChange={handleRestore} />
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('DASHBOARD');
+            const [inventory, setInventory] = useState([]);
+            const [transactions, setTransactions] = useState([]);
+            const [notification, setNotification] = useState(null);
+
+            const loadData = async () => {
+                const cloud = await fetchFromSheet();
+                if (cloud.inventory) {
+                    setInventory(cloud.inventory);
+                    setTransactions(cloud.transactions);
+                    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(cloud.inventory));
+                    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(cloud.transactions));
+                } else {
+                    setInventory(getInventory());
+                    setTransactions(getTransactions());
+                }
+            };
+
+            useEffect(() => { loadData(); }, []);
+
+            const handleTransaction = async (name, items, method) => {
+                const newTx = {
+                    id: Date.now().toString(),
+                    employeeName: name,
+                    items: items.map(i => {
+                        const d = inventory.find(x => x.id === i.itemId);
+                        return { itemId: i.itemId, itemName: d ? d.name : 'Unknown', quantity: i.quantity };
+                    }),
+                    timestamp: new Date().toISOString(),
+                    method
+                };
+                const updatedInv = updateInventoryStock(items);
+                const updatedTx = [newTx, ...transactions];
+                setInventory(updatedInv);
+                setTransactions(updatedTx);
+                saveTransaction(newTx);
+                setNotification("Updated!");
+                setTimeout(() => setNotification(null), 3000);
+                await syncWithSheet(updatedInv, updatedTx);
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row">
+                    <aside className="bg-slate-900 text-white w-full md:w-64 p-4 flex flex-col flex-shrink-0">
+                        <div className="mb-8 p-2">
+                            <h1 className="text-xl font-bold flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-safety-500"></span> SafetyFirst</h1>
+                        </div>
+                        <nav className="space-y-2 flex-1">
+                            {['DASHBOARD', 'INVENTORY', 'HISTORY', 'SETTINGS'].map(v => (
+                                <button key={v} onClick={() => setView(v)} className={`w-full text-left px-4 py-3 rounded text-sm font-medium ${view === v ? 'bg-safety-600' : 'hover:bg-slate-800 text-slate-300'}`}>
+                                    {v.charAt(0) + v.slice(1).toLowerCase()}
+                                </button>
+                            ))}
+                        </nav>
+                    </aside>
+                    <main className="flex-1 p-4 md:p-8 overflow-y-auto relative">
+                        {notification && <div className="fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded shadow animate-bounce z-50">{notification}</div>}
+                        <div className="max-w-5xl mx-auto">
+                            {view === 'DASHBOARD' && (
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                    <div className="lg:col-span-1"><h2 className="font-bold mb-4">Checkout</h2><CheckoutForm inventory={inventory} onSubmit={handleTransaction} /></div>
+                                    <div className="lg:col-span-2 space-y-8"><Dashboard inventory={inventory} transactions={transactions} /><InventoryTable inventory={inventory} /></div>
+                                </div>
+                            )}
+                            {view === 'INVENTORY' && <InventoryTable inventory={inventory} />}
+                            {view === 'HISTORY' && <HistoryLog transactions={transactions} />}
+                            {view === 'SETTINGS' && <Settings onSync={loadData} />}
+                        </div>
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
