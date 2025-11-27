@@ -5,24 +5,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gold Coin Bekasi PPE Database</title>
     
-    <!-- 1. Error Handler (Must be first) -->
+    <!-- 1. ERROR HANDLER (This ensures you see an error instead of a white screen) -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            // Ignore ResizeObserver errors (common in charts)
-            if(msg.includes("ResizeObserver")) return;
+            // Ignore benign ResizeObserver errors from charts
+            if(msg && msg.includes && msg.includes("ResizeObserver")) return;
             
             const root = document.getElementById('root');
             if(root) {
                 root.innerHTML = `
-                <div style="color: #ef4444; padding: 40px; font-family: sans-serif; text-align: center; background: #fff;">
-                    <h1 style="font-size: 24px; margin-bottom: 10px;">⚠️ Application Error</h1>
-                    <p style="font-size: 16px; color: #374151; margin-bottom: 20px;">${msg}</p>
-                    <div style="font-size: 12px; color: #6b7280; font-family: monospace; background: #f3f4f6; padding: 10px; border-radius: 4px; display: inline-block; margin-bottom: 20px;">
-                        Line: ${line}
+                <div style="background-color: #fef2f2; color: #991b1b; padding: 40px; font-family: sans-serif; text-align: center; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 20px;">⚠️ App Crash Detected</h1>
+                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 600px; text-align: left;">
+                        <p style="font-weight: bold; margin-bottom: 10px;">Error Message:</p>
+                        <code style="display: block; background: #f3f4f6; padding: 10px; border-radius: 4px; color: #dc2626; margin-bottom: 20px;">${msg}</code>
+                        <p style="font-size: 14px; color: #6b7280;">Line: ${line} | Column: ${col}</p>
                     </div>
-                    <br/>
-                    <button onclick="localStorage.clear(); window.location.reload()" style="padding: 10px 20px; background: #374151; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                        Reset App Data
+                    <button onclick="localStorage.clear(); window.location.reload()" style="margin-top: 30px; padding: 12px 24px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">
+                        Reset App Data & Reload
                     </button>
                 </div>
                 `;
@@ -31,7 +31,7 @@
         };
     </script>
 
-    <!-- 2. Styling (Tailwind) -->
+    <!-- 2. STYLES (Tailwind) -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -40,7 +40,6 @@
                     colors: {
                         safety: { 50: '#fff7ed', 100: '#ffedd5', 500: '#f97316', 600: '#ea580c', 700: '#c2410c' }
                     },
-                    fontFamily: { sans: ['Inter', 'sans-serif'] },
                     animation: { 'fade-in': 'fadeIn 0.3s ease-out forwards' },
                     keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
                 }
@@ -48,31 +47,38 @@
         }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
 
-    <!-- 3. Libraries (React, Recharts, Icons, GenAI) -->
+    <!-- 3. DEPENDENCIES (React, Recharts, Lucide, Gemini) -->
     <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@18.2.0",
     "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "@google/genai": "https://esm.sh/@google/genai@0.1.1",
     "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
     "lucide-react": "https://esm.sh/lucide-react@0.330.0?external=react",
+    "@google/genai": "https://esm.sh/@google/genai@0.1.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/"
   }
 }
 </script>
+    <!-- Babel for compiling React in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
-    <div id="root"></div>
+    <div id="root">
+        <!-- Loading State before React mounts -->
+        <div class="h-screen flex items-center justify-center flex-col gap-4 text-slate-400">
+            <div class="w-8 h-8 border-4 border-safety-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-sm font-medium">Loading Gold Coin Bekasi PPE...</p>
+        </div>
+    </div>
 
-    <!-- 4. Main Application Code -->
+    <!-- 4. APPLICATION LOGIC -->
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { GoogleGenAI, Type } from '@google/genai';
         import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
         import { 
             LayoutDashboard, List, History, Settings as SettingsIcon, Shield, 
@@ -80,8 +86,9 @@
             FileJson, Link, HelpCircle, CheckCircle, Package, BrainCircuit, 
             AlertTriangle, Mic, Send, User 
         } from 'lucide-react';
+        import { GoogleGenAI } from '@google/genai';
 
-        // --- 1. CONSTANTS & DATA ---
+        // --- CONSTANTS ---
         const INITIAL_INVENTORY = [
             { id: '1', name: 'Safety Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
             { id: '2', name: 'Safety Helmet (Yellow)', category: 'Head', quantity: 12, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
@@ -93,121 +100,118 @@
             { id: '8', name: 'Steel Toe Boots (Sz 10)', category: 'Foot', quantity: 4, unit: 'pairs', threshold: 5, lastUpdated: new Date().toISOString() },
         ];
 
-        const GOOGLE_SCRIPT = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var inv=[];var tx=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),employeeName:r[1],items:[{itemName:r[2],quantity:0,itemId:"0"}],timestamp:r[3],method:r[4]}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx})).setMimeType(ContentService.MimeType.JSON);}`;
+        const GOOGLE_SCRIPT_TEMPLATE = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var inv=[];var tx=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),employeeName:r[1],items:[{itemName:r[2],quantity:0,itemId:"0"}],timestamp:r[3],method:r[4]}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx})).setMimeType(ContentService.MimeType.JSON);}`;
 
-        // --- 2. STORAGE SERVICE ---
-        const STORAGE_KEYS = { INVENTORY: 'ppe_inventory', TRANSACTIONS: 'ppe_transactions', SETTINGS: 'ppe_settings' };
+        // --- SERVICES (Storage, AI, Sheets) ---
+        const STORAGE_KEYS = { INVENTORY: 'ppe_inv_v2', TRANSACTIONS: 'ppe_tx_v2', SETTINGS: 'ppe_set_v2' };
 
-        const safeJsonParse = (str, fallback) => {
-            try { return str ? JSON.parse(str) : fallback; } 
-            catch (e) { return fallback; }
+        // Helper: Safe JSON Parse
+        const safeParse = (key, fallback) => {
+            try {
+                const item = localStorage.getItem(key);
+                return item ? JSON.parse(item) : fallback;
+            } catch (e) {
+                console.error("Storage Error", e);
+                return fallback;
+            }
         };
 
-        const getSettings = () => safeJsonParse(localStorage.getItem(STORAGE_KEYS.SETTINGS), { googleSheetUrl: '', apiKey: '', lastSyncTime: null });
+        const getSettings = () => safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', googleSheetUrl: '', lastSync: null });
         const saveSettings = (s) => localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(s));
 
-        const getInventory = () => {
-            const s = localStorage.getItem(STORAGE_KEYS.INVENTORY);
-            if (!s) { localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(INITIAL_INVENTORY)); return INITIAL_INVENTORY; }
-            return safeJsonParse(s, INITIAL_INVENTORY);
-        };
-        const saveInventory = (inv) => localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inv));
+        const getInventory = () => safeParse(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY);
+        const saveInventory = (d) => localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(d));
 
-        const getTransactions = () => safeJsonParse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS), []);
-        const saveTransaction = (tx) => {
-            const list = getTransactions();
-            const updated = [tx, ...list];
-            localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(updated));
-            return updated;
-        };
-        const saveAllTransactions = (txs) => localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(txs));
+        const getTransactions = () => safeParse(STORAGE_KEYS.TRANSACTIONS, []);
+        const saveTransactions = (d) => localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(d));
 
-        // --- 3. GEMINI SERVICE ---
-        const getAiClient = () => {
-            const s = getSettings();
-            if (!s.apiKey) throw new Error("API Key missing. Go to Settings.");
-            return new GoogleGenAI({ apiKey: s.apiKey });
+        // AI Service
+        const runAiCheckout = async (prompt, inventory) => {
+            const { apiKey } = getSettings();
+            if (!apiKey) throw new Error("Please add your Gemini API Key in Settings first.");
+            
+            const ai = new GoogleGenAI({ apiKey });
+            const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+            
+            const invList = inventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
+            const sysPrompt = `You are a PPE Inventory Assistant.
+            Inventory:
+            ${invList}
+            
+            Task: Extract user request into JSON.
+            1. Employee Name (default 'Unknown').
+            2. Items: Map fuzzy names to EXACT inventory list names.
+            3. Output JSON only: { "employeeName": string, "items": [{ "itemNameTarget": string, "quantity": number }] }`;
+
+            const result = await model.generateContent({
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                generationConfig: { responseMimeType: "application/json" },
+                systemInstruction: { parts: [{ text: sysPrompt }] }
+            });
+            
+            return JSON.parse(result.response.text());
         };
 
-        const parseCheckoutRequest = async (prompt, inventory) => {
+        const runAiInsight = async (inventory) => {
+            const { apiKey } = getSettings();
+            if (!apiKey) return "AI Insights disabled (No API Key).";
+            
             try {
-                const ai = getAiClient();
-                const list = inventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
-                const resp = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: prompt,
-                    config: {
-                        systemInstruction: `Inventory Assistant. Inventory:\n${list}\nExtract: Employee Name (default 'Unknown'), Items (map to exact names), Quantity.`,
-                        responseMimeType: "application/json",
-                        responseSchema: {
-                            type: Type.OBJECT,
-                            properties: {
-                                employeeName: { type: Type.STRING },
-                                items: {
-                                    type: Type.ARRAY,
-                                    items: {
-                                        type: Type.OBJECT,
-                                        properties: { itemNameTarget: { type: Type.STRING }, quantity: { type: Type.INTEGER } }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                });
-                return JSON.parse(resp.text);
-            } catch (e) { throw e; }
+                const ai = new GoogleGenAI({ apiKey });
+                const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+                const dataStr = JSON.stringify(inventory.map(i => ({n:i.name, q:i.quantity, t:i.threshold})));
+                const result = await model.generateContent(`Analyze stock levels: ${dataStr}. Write 1 short sentence advising the safety officer.`);
+                return result.response.text();
+            } catch (e) {
+                return "Could not generate insight.";
+            }
         };
 
-        const generateInsights = async (inventory) => {
+        // Sheets Service
+        const syncSheet = async (inv, tx) => {
+            const { googleSheetUrl } = getSettings();
+            if (!googleSheetUrl) return;
             try {
-                const ai = getAiClient();
-                const data = inventory.map(i => ({n: i.name, q: i.quantity, t: i.threshold}));
-                const resp = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
-                    contents: `Analyze stock: ${JSON.stringify(data)}. 2 sentence summary for supervisor.`
-                });
-                return resp.text;
-            } catch (e) { return "Insight unavailable (Check API Key)."; }
-        };
-
-        // --- 4. SHEETS SERVICE ---
-        const syncWithSheet = async (inv, txs) => {
-            const s = getSettings();
-            if (!s.googleSheetUrl) return;
-            try {
-                await fetch(s.googleSheetUrl, {
+                await fetch(googleSheetUrl, {
                     method: 'POST', mode: 'no-cors',
-                    headers: { "Content-Type": "text/plain;charset=utf-8" },
-                    body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: txs })
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: tx })
                 });
-                saveSettings({ ...s, lastSyncTime: new Date().toISOString() });
-            } catch (e) { console.error("Sync error", e); }
+            } catch (e) { console.error("Sync failed", e); }
         };
 
-        const fetchFromSheet = async () => {
-            const s = getSettings();
-            if (!s.googleSheetUrl) return { inventory: null };
+        const loadSheet = async () => {
+            const { googleSheetUrl } = getSettings();
+            if (!googleSheetUrl) return null;
             try {
-                const r = await fetch(`${s.googleSheetUrl}?action=GET_DATA`);
-                const d = await r.json();
-                return d.status === 'success' ? d : { inventory: null };
-            } catch (e) { return { inventory: null }; }
+                const res = await fetch(`${googleSheetUrl}?action=GET_DATA`);
+                const data = await res.json();
+                return (data && data.status === 'success') ? data : null;
+            } catch (e) { return null; }
         };
 
-        // --- 5. COMPONENTS ---
+        // --- COMPONENTS ---
 
+        // 1. Chart
         const StockChart = ({ data }) => {
-            const chartData = data.map(i => ({ name: i.name.split('(')[0].trim(), quantity: i.quantity, threshold: i.threshold }));
+            const chartData = data.map(i => ({
+                name: i.name.split('(')[0].trim(),
+                quantity: i.quantity,
+                threshold: i.threshold
+            }));
+            
             return (
                 <div className="h-64 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer>
                         <BarChart data={chartData} margin={{top:10, right:10, left:-20, bottom:0}}>
                             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
                             <XAxis dataKey="name" tick={{fontSize:10, fill:'#64748b'}} interval={0} angle={-15} textAnchor="end" height={40}/>
                             <YAxis tick={{fontSize:11, fill:'#64748b'}}/>
-                            <Tooltip cursor={{fill:'#f8fafc'}} contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 4px 6px -1px rgb(0 0 0/0.1)'}}/>
+                            <Tooltip cursor={{fill:'#f8fafc'}} contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}}/>
                             <Bar dataKey="quantity" radius={[4,4,0,0]}>
-                                {chartData.map((e, i) => <Cell key={i} fill={e.quantity <= e.threshold ? '#ef4444' : '#3b82f6'}/>)}
+                                {chartData.map((e, i) => (
+                                    <Cell key={i} fill={e.quantity <= e.threshold ? '#ef4444' : '#3b82f6'}/>
+                                ))}
                             </Bar>
                         </BarChart>
                     </ResponsiveContainer>
@@ -215,192 +219,304 @@
             );
         };
 
+        // 2. Inventory Modal (Add/Edit)
         const InventoryModal = ({ isOpen, onClose, onSave, initialData }) => {
             const [form, setForm] = useState({ name:'', category:'General', quantity:0, unit:'pcs', threshold:5 });
-            useEffect(() => { if(isOpen) setForm(initialData || { name:'', category:'General', quantity:0, unit:'pcs', threshold:5 }); }, [isOpen, initialData]);
-            if (!isOpen) return null;
+            
+            useEffect(() => {
+                if(isOpen) setForm(initialData || { name:'', category:'General', quantity:0, unit:'pcs', threshold:5 });
+            }, [isOpen, initialData]);
+
+            if(!isOpen) return null;
+
             return (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
-                        <div className="flex justify-between items-center p-4 border-b bg-slate-50">
-                            <h3 className="font-bold">{initialData ? 'Edit Item' : 'Add Item'}</h3>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">{initialData ? 'Edit Item' : 'Add Item'}</h3>
                             <button onClick={onClose}><X className="w-5 h-5 text-slate-400"/></button>
                         </div>
-                        <form onSubmit={(e)=>{e.preventDefault(); onSave(form);}} className="p-6 space-y-4">
-                            <div><label className="block text-xs font-bold text-slate-500 uppercase">Name</label><input className="w-full p-2 border rounded" value={form.name} onChange={e=>setForm({...form, name:e.target.value})} required/></div>
+                        <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
+                            <div><label className="text-xs font-bold text-slate-500">NAME</label><input className="w-full p-2 border rounded" required value={form.name} onChange={e=>setForm({...form, name:e.target.value})}/></div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-xs font-bold text-slate-500 uppercase">Category</label><select className="w-full p-2 border rounded" value={form.category} onChange={e=>setForm({...form, category:e.target.value})}><option>General</option><option>Head</option><option>Eye</option><option>Hand</option><option>Foot</option><option>Apparel</option></select></div>
-                                <div><label className="block text-xs font-bold text-slate-500 uppercase">Unit</label><input className="w-full p-2 border rounded" value={form.unit} onChange={e=>setForm({...form, unit:e.target.value})}/></div>
+                                <div><label className="text-xs font-bold text-slate-500">CATEGORY</label><select className="w-full p-2 border rounded" value={form.category} onChange={e=>setForm({...form, category:e.target.value})}><option>General</option><option>Head</option><option>Eye</option><option>Hand</option><option>Foot</option><option>Apparel</option></select></div>
+                                <div><label className="text-xs font-bold text-slate-500">UNIT</label><input className="w-full p-2 border rounded" value={form.unit} onChange={e=>setForm({...form, unit:e.target.value})}/></div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
-                                <div><label className="block text-xs font-bold text-slate-500 uppercase">Qty</label><input type="number" className="w-full p-2 border rounded" value={form.quantity} onChange={e=>setForm({...form, quantity:parseInt(e.target.value)||0})}/></div>
-                                <div><label className="block text-xs font-bold text-slate-500 uppercase">Limit</label><input type="number" className="w-full p-2 border rounded" value={form.threshold} onChange={e=>setForm({...form, threshold:parseInt(e.target.value)||0})}/></div>
+                                <div><label className="text-xs font-bold text-slate-500">QTY</label><input type="number" className="w-full p-2 border rounded" value={form.quantity} onChange={e=>setForm({...form, quantity:parseInt(e.target.value)||0})}/></div>
+                                <div><label className="text-xs font-bold text-slate-500">LIMIT</label><input type="number" className="w-full p-2 border rounded" value={form.threshold} onChange={e=>setForm({...form, threshold:parseInt(e.target.value)||0})}/></div>
                             </div>
-                            <button type="submit" className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Save</button>
+                            <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Save Item</button>
                         </form>
                     </div>
                 </div>
             );
         };
 
-        const CheckoutForm = ({ inventory, onSubmit }) => {
-            const [tab, setTab] = useState('manual');
-            const [loading, setLoading] = useState(false);
-            const [manual, setManual] = useState({ name:'', itemId:'', qty:1 });
-            const [prompt, setPrompt] = useState('');
-            const [error, setError] = useState('');
+        // 3. Main App Component
+        const App = () => {
+            const [view, setView] = useState('DASHBOARD');
+            const [inv, setInv] = useState([]);
+            const [tx, setTx] = useState([]);
+            const [loading, setLoading] = useState(true);
+            const [notif, setNotif] = useState(null);
+            
+            // Modal State
+            const [modalOpen, setModalOpen] = useState(false);
+            const [editItem, setEditItem] = useState(null);
+            
+            // Checkout State
+            const [coTab, setCoTab] = useState('manual');
+            const [coForm, setCoForm] = useState({ name:'', item:'', qty:1 });
+            const [aiPrompt, setAiPrompt] = useState('');
+            const [aiLoad, setAiLoad] = useState(false);
+            const [insight, setInsight] = useState('Loading insight...');
 
-            const handleManual = (e) => {
-                e.preventDefault();
-                onSubmit(manual.name, [{itemId:manual.itemId, quantity:manual.qty}], 'MANUAL');
-                setManual({ name:'', itemId:'', qty:1 });
+            // QR State
+            const [qrOpen, setQrOpen] = useState(false);
+
+            // Settings State
+            const [settings, setSettingsState] = useState(getSettings());
+
+            // --- EFFECTS ---
+            useEffect(() => {
+                const init = async () => {
+                    const cloud = await loadSheet();
+                    if(cloud && cloud.inventory) {
+                        setInv(cloud.inventory);
+                        setTx(cloud.transactions || []);
+                        saveInventory(cloud.inventory);
+                        saveTransactions(cloud.transactions || []);
+                    } else {
+                        setInv(getInventory());
+                        setTx(getTransactions());
+                    }
+                    setLoading(false);
+                };
+                init();
+            }, []);
+
+            useEffect(() => {
+                if(inv.length > 0) runAiInsight(inv).then(setInsight);
+            }, [inv]);
+
+            // --- HANDLERS ---
+            const notify = (msg) => { setNotif(msg); setTimeout(()=>setNotif(null), 3000); };
+
+            const handleCheckout = async (name, items, method) => {
+                const newTx = {
+                    id: Date.now().toString(),
+                    employeeName: name,
+                    timestamp: new Date().toISOString(),
+                    method,
+                    items: items.map(i => ({ 
+                        itemId: i.itemId, 
+                        quantity: i.quantity, 
+                        itemName: inv.find(x=>x.id===i.itemId)?.name || 'Unknown' 
+                    }))
+                };
+
+                const newInv = inv.map(item => {
+                    const match = items.find(x => x.itemId === item.id);
+                    return match ? { ...item, quantity: Math.max(0, item.quantity - match.quantity) } : item;
+                });
+
+                setInv(newInv); setTx([newTx, ...tx]);
+                saveInventory(newInv); saveTransactions([newTx, ...tx]);
+                syncSheet(newInv, [newTx, ...tx]);
+                notify('Checkout Successful!');
             };
 
-            const handleAi = async (e) => {
+            const processAiCheckout = async (e) => {
                 e.preventDefault();
-                setLoading(true); setError('');
+                setAiLoad(true);
                 try {
-                    const res = await parseCheckoutRequest(prompt, inventory);
-                    if (!res?.items?.length) throw new Error("No items matched.");
-                    const items = [];
-                    res.items.forEach(i => {
-                        const match = inventory.find(x => x.name === i.itemNameTarget);
-                        if(match) items.push({itemId:match.id, quantity:i.quantity});
+                    const data = await runAiCheckout(aiPrompt, inv);
+                    const itemsToCo = [];
+                    data.items.forEach(req => {
+                        const found = inv.find(i => i.name === req.itemNameTarget);
+                        if(found) itemsToCo.push({ itemId: found.id, quantity: req.quantity });
                     });
-                    if(!items.length) throw new Error("Items not found in inventory.");
-                    onSubmit(res.employeeName||'Unknown', items, 'AI');
-                    setPrompt('');
-                } catch(e) { setError(e.message); }
-                finally { setLoading(false); }
+                    
+                    if(itemsToCo.length === 0) throw new Error("No items matched inventory.");
+                    
+                    handleCheckout(data.employeeName || 'Unknown', itemsToCo, 'AI');
+                    setAiPrompt('');
+                } catch(err) {
+                    alert(err.message);
+                } finally {
+                    setAiLoad(false);
+                }
             };
 
-            return (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
-                    <div className="flex border-b border-slate-100">
-                        <button onClick={()=>setTab('manual')} className={`flex-1 py-3 text-sm font-bold ${tab==='manual'?'text-safety-600 border-b-2 border-safety-600 bg-safety-50':''}`}>Manual</button>
-                        <button onClick={()=>setTab('ai')} className={`flex-1 py-3 text-sm font-bold ${tab==='ai'?'text-indigo-600 border-b-2 border-indigo-600 bg-indigo-50':''}`}>AI Assistant</button>
-                    </div>
-                    <div className="p-5 flex-1">
-                        {tab==='manual' ? (
-                            <form onSubmit={handleManual} className="space-y-4">
-                                <div><label className="block text-xs font-bold text-slate-500 uppercase">Employee</label><input className="w-full p-2 border rounded bg-slate-50" value={manual.name} onChange={e=>setManual({...manual, name:e.target.value})} required/></div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="col-span-2"><label className="block text-xs font-bold text-slate-500 uppercase">Item</label><select className="w-full p-2 border rounded bg-slate-50" value={manual.itemId} onChange={e=>setManual({...manual, itemId:e.target.value})} required><option value="">Select...</option>{inventory.map(i=><option key={i.id} value={i.id}>{i.name} ({i.quantity})</option>)}</select></div>
-                                    <div><label className="block text-xs font-bold text-slate-500 uppercase">Qty</label><input type="number" min="1" className="w-full p-2 border rounded bg-slate-50" value={manual.qty} onChange={e=>setManual({...manual, qty:parseInt(e.target.value)||1})}/></div>
-                                </div>
-                                <button className="w-full bg-safety-600 text-white py-3 rounded font-bold hover:bg-safety-700">Checkout</button>
+            const saveItem = async (itemData) => {
+                let newInv;
+                if(editItem) {
+                    newInv = inv.map(i => i.id === editItem.id ? { ...itemData, id: i.id } : i);
+                } else {
+                    newInv = [...inv, { ...itemData, id: Date.now().toString(), lastUpdated: new Date().toISOString() }];
+                }
+                setInv(newInv); saveInventory(newInv); syncSheet(newInv, tx);
+                setModalOpen(false); setEditItem(null); notify('Inventory Updated');
+            };
+
+            const deleteItem = async (id) => {
+                if(!confirm('Delete item?')) return;
+                const newInv = inv.filter(i => i.id !== id);
+                setInv(newInv); saveInventory(newInv); syncSheet(newInv, tx);
+                notify('Item Deleted');
+            };
+
+            if(loading) return null; // handled by HTML loader
+
+            // --- RENDER HELPERS ---
+            const renderDashboard = () => (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Checkout Card */}
+                    <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6 h-fit">
+                        <h2 className="font-bold text-lg mb-4 flex items-center gap-2"><Package className="w-5 h-5"/> Quick Checkout</h2>
+                        <div className="flex border-b mb-4">
+                            <button onClick={()=>setCoTab('manual')} className={`flex-1 py-2 text-sm font-bold ${coTab==='manual'?'text-safety-600 border-b-2 border-safety-600':''}`}>Manual</button>
+                            <button onClick={()=>setCoTab('ai')} className={`flex-1 py-2 text-sm font-bold ${coTab==='ai'?'text-indigo-600 border-b-2 border-indigo-600':''}`}>AI Voice</button>
+                        </div>
+                        {coTab === 'manual' ? (
+                            <form onSubmit={e=>{e.preventDefault(); handleCheckout(coForm.name, [{itemId:coForm.item, quantity:coForm.qty}], 'MANUAL'); setCoForm({name:'', item:'', qty:1});}} className="space-y-3">
+                                <input placeholder="Employee Name" className="w-full p-2 border rounded bg-slate-50" required value={coForm.name} onChange={e=>setCoForm({...coForm, name:e.target.value})}/>
+                                <select className="w-full p-2 border rounded bg-slate-50" required value={coForm.item} onChange={e=>setCoForm({...coForm, item:e.target.value})}>
+                                    <option value="">Select Item...</option>
+                                    {inv.map(i=><option key={i.id} value={i.id} disabled={i.quantity===0}>{i.name} ({i.quantity})</option>)}
+                                </select>
+                                <input type="number" min="1" className="w-full p-2 border rounded bg-slate-50" required value={coForm.qty} onChange={e=>setCoForm({...coForm, qty:parseInt(e.target.value)||1})}/>
+                                <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Checkout</button>
                             </form>
                         ) : (
-                            <form onSubmit={handleAi} className="space-y-4 flex flex-col h-full">
-                                <div className="bg-indigo-50 p-3 rounded text-xs text-indigo-700"><Mic className="w-3 h-3 inline"/> Try: "Mike took 2 helmets"</div>
-                                <textarea className="w-full flex-1 p-3 border rounded resize-none" placeholder="Describe checkout..." value={prompt} onChange={e=>setPrompt(e.target.value)} required></textarea>
-                                {error && <p className="text-xs text-red-600">{error}</p>}
-                                <button disabled={loading} className="w-full bg-indigo-600 text-white py-3 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">{loading?'...':'Process'}</button>
+                            <form onSubmit={processAiCheckout} className="space-y-3">
+                                <div className="bg-indigo-50 p-2 rounded text-xs text-indigo-700">Ex: "Mike took 2 helmets"</div>
+                                <textarea className="w-full p-2 border rounded h-24" placeholder="Type request..." value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)} required></textarea>
+                                <button disabled={aiLoad} className="w-full bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">{aiLoad?'Processing...':'Process with AI'}</button>
                             </form>
                         )}
                     </div>
-                </div>
-            );
-        };
 
-        const Settings = ({ onSync }) => {
-            const [s, setS] = useState({ apiKey:'', googleSheetUrl:'' });
-            const [msg, setMsg] = useState('');
-            useEffect(() => setS(getSettings()), []);
-            const save = () => { saveSettings(s); setMsg('Saved!'); setTimeout(()=>setMsg(''),2000); };
-            const restore = (e) => {
-                const f = e.target.files[0];
-                if(!f) return;
-                const r = new FileReader();
-                r.onload = (e) => {
-                    try {
-                        const d = JSON.parse(e.target.result);
-                        if(d.inventory) saveInventory(d.inventory);
-                        if(d.transactions) saveAllTransactions(d.transactions);
-                        onSync(); setMsg('Restored!');
-                    } catch(e) { setMsg('Error'); }
-                };
-                r.readAsText(f);
-            };
-
-            return (
-                <div className="max-w-3xl mx-auto space-y-6 animate-fade-in pb-12">
-                    <div className="bg-white p-6 rounded-xl border shadow-sm">
-                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><BrainCircuit className="w-5 h-5 text-indigo-600"/> AI Key</h3>
-                        <p className="text-sm text-slate-500 mb-2">Required for AI features. Get from Google AI Studio.</p>
-                        <input type="password" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste API Key" value={s.apiKey} onChange={e=>setS({...s, apiKey:e.target.value})}/>
-                    </div>
-                    <div className="bg-white p-6 rounded-xl border shadow-sm">
-                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Link className="w-5 h-5 text-green-600"/> Sheets Sync</h3>
-                        <div className="bg-slate-50 p-2 rounded mb-4 text-[10px] font-mono border overflow-auto whitespace-pre h-20">{GOOGLE_SCRIPT}</div>
-                        <input className="w-full p-2 border rounded font-mono text-sm mb-4" placeholder="Web App URL" value={s.googleSheetUrl} onChange={e=>setS({...s, googleSheetUrl:e.target.value})}/>
-                        <button onClick={save} className="bg-safety-600 text-white px-6 py-2 rounded font-bold hover:bg-safety-700 flex items-center gap-2"><Save className="w-4 h-4"/> Save Settings</button>
-                        {msg && <span className="ml-4 text-green-600 font-bold">{msg}</span>}
-                    </div>
-                    <div className="bg-white p-6 rounded-xl border shadow-sm">
-                        <h3 className="font-bold text-lg mb-4">Data</h3>
-                        <div className="flex gap-4">
-                            <button onClick={()=>{
-                                const b = new Blob([JSON.stringify({inventory:getInventory(), transactions:getTransactions()})], {type:'application/json'});
-                                const a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download='backup.json'; a.click();
-                            }} className="border px-4 py-2 rounded hover:bg-slate-50 flex items-center gap-2"><Download className="w-4 h-4"/> Backup</button>
-                            <label className="border px-4 py-2 rounded hover:bg-slate-50 cursor-pointer flex items-center gap-2"><Upload className="w-4 h-4"/> Restore <input type="file" className="hidden" accept=".json" onChange={restore}/></label>
+                    {/* Stats & Charts */}
+                    <div className="lg:col-span-2 space-y-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-white p-4 rounded border shadow-sm">
+                                <p className="text-xs text-slate-500 font-bold uppercase">Total Items</p>
+                                <p className="text-2xl font-bold">{inv.reduce((a,b)=>a+b.quantity,0)}</p>
+                            </div>
+                            <div className="bg-white p-4 rounded border shadow-sm">
+                                <p className="text-xs text-slate-500 font-bold uppercase">Low Stock</p>
+                                <p className={`text-2xl font-bold ${inv.some(i=>i.quantity<=i.threshold)?'text-red-600':'text-green-600'}`}>{inv.filter(i=>i.quantity<=i.threshold).length}</p>
+                            </div>
+                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-4 rounded shadow">
+                                <p className="text-xs font-bold uppercase flex gap-1"><BrainCircuit className="w-3 h-3"/> AI Insight</p>
+                                <p className="text-xs mt-1 opacity-90">{insight}</p>
+                            </div>
+                        </div>
+                        <div className="bg-white p-4 rounded border shadow-sm">
+                            <h3 className="font-bold mb-4">Stock Overview</h3>
+                            <StockChart data={inv}/>
                         </div>
                     </div>
                 </div>
             );
-        };
 
-        const App = () => {
-            const [view, setView] = useState('DASHBOARD');
-            const [inv, setInv] = useState([]);
-            const [txs, setTxs] = useState([]);
-            const [notif, setNotif] = useState(null);
-            const [modal, setModal] = useState({ open: false, data: null });
-            const [insight, setInsight] = useState('Loading...');
+            const renderInventory = () => (
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                        <h2 className="text-xl font-bold">Inventory List</h2>
+                        <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold hover:bg-safety-700 flex gap-2"><Plus className="w-4 h-4"/> Add Item</button>
+                    </div>
+                    <div className="bg-white rounded border overflow-auto">
+                        <table className="w-full text-sm text-left">
+                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                                <tr><th className="p-4">Item</th><th className="p-4">Qty</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr>
+                            </thead>
+                            <tbody className="divide-y">
+                                {inv.map(i=>(
+                                    <tr key={i.id} className="hover:bg-slate-50">
+                                        <td className="p-4"><div className="font-bold">{i.name}</div><div className="text-xs text-slate-400">{i.category}</div></td>
+                                        <td className="p-4">{i.quantity} {i.unit}</td>
+                                        <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${i.quantity<=i.threshold?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>{i.quantity<=i.threshold?'Low':'OK'}</span></td>
+                                        <td className="p-4 text-right">
+                                            <button onClick={()=>{setEditItem(i); setModalOpen(true);}} className="p-2 text-slate-400 hover:text-indigo-600"><Edit2 className="w-4 h-4"/></button>
+                                            <button onClick={()=>deleteItem(i.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
+                                        </td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            );
 
-            const load = async () => {
-                const cloud = await fetchFromSheet();
-                if(cloud.inventory) { setInv(cloud.inventory); setTxs(cloud.transactions||[]); saveInventory(cloud.inventory); saveAllTransactions(cloud.transactions||[]); }
-                else { setInv(getInventory()); setTxs(getTransactions()); }
-            };
-            useEffect(() => { load(); }, []);
-            useEffect(() => { generateInsights(inv).then(setInsight); }, [inv]);
+            const renderHistory = () => (
+                <div className="space-y-4">
+                    <h2 className="text-xl font-bold">Transaction History</h2>
+                    {tx.map(t => (
+                        <div key={t.id} className="bg-white p-4 rounded border flex justify-between items-center">
+                            <div>
+                                <div className="font-bold text-slate-800">{t.employeeName} <span className="text-[10px] border px-1 rounded text-slate-500">{t.method}</span></div>
+                                <div className="text-xs text-slate-400">{new Date(t.timestamp).toLocaleString()}</div>
+                            </div>
+                            <div className="text-right">
+                                {t.items.map((i,x)=>(<div key={x} className="text-sm">{i.itemName} <span className="text-red-600 font-bold">-{i.quantity}</span></div>))}
+                            </div>
+                        </div>
+                    ))}
+                    {tx.length === 0 && <p className="text-center text-slate-400">No transactions yet.</p>}
+                </div>
+            );
 
-            const notify = (m) => { setNotif(m); setTimeout(()=>setNotif(null),3000); };
-            
-            const handleTx = async (name, items, method) => {
-                const tx = { id: Date.now().toString(), employeeName: name, timestamp: new Date().toISOString(), method, items: items.map(i=>({itemId:i.itemId, quantity:i.quantity, itemName:inv.find(x=>x.id===i.itemId)?.name||'Unknown'})) };
-                const newInv = inv.map(i => {
-                    const m = items.find(x=>x.itemId===i.id);
-                    return m ? {...i, quantity:Math.max(0, i.quantity-m.quantity), lastUpdated:new Date().toISOString()} : i;
-                });
-                setInv(newInv); setTxs([tx, ...txs]); saveInventory(newInv); saveTransaction(tx); notify('Checkout Saved');
-                await syncWithSheet(newInv, [tx, ...txs]);
-            };
-
-            const handleSaveItem = async (item) => {
-                let newInv;
-                if(modal.data) newInv = inv.map(i=>i.id===modal.data.id ? {...item, id:i.id, lastUpdated:new Date().toISOString()} : i);
-                else newInv = [...inv, {...item, id:Date.now().toString(), lastUpdated:new Date().toISOString()}];
-                setInv(newInv); saveInventory(newInv); setModal({open:false, data:null}); notify('Inventory Updated');
-                await syncWithSheet(newInv, txs);
-            };
-
-            const handleDelete = async (id) => {
-                const newInv = inv.filter(i=>i.id!==id);
-                setInv(newInv); saveInventory(newInv); notify('Item Deleted');
-                await syncWithSheet(newInv, txs);
-            };
+            const renderSettings = () => (
+                <div className="max-w-2xl mx-auto space-y-6 pb-12">
+                    <div className="bg-white p-6 rounded border">
+                        <h3 className="font-bold text-lg mb-4 flex gap-2"><BrainCircuit className="w-5 h-5 text-indigo-600"/> AI Settings</h3>
+                        <p className="text-xs text-slate-500 mb-2">Get Key from <a href="https://aistudio.google.com" target="_blank" className="underline">aistudio.google.com</a></p>
+                        <input type="password" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste Gemini API Key" value={settings.apiKey} onChange={e=>setSettingsState({...settings, apiKey:e.target.value})}/>
+                    </div>
+                    <div className="bg-white p-6 rounded border">
+                        <h3 className="font-bold text-lg mb-4 flex gap-2"><Link className="w-5 h-5 text-green-600"/> Google Sheets Sync</h3>
+                        <textarea readOnly className="w-full h-24 bg-slate-900 text-slate-300 text-xs font-mono p-2 rounded mb-2" value={GOOGLE_SCRIPT_TEMPLATE}></textarea>
+                        <input className="w-full p-2 border rounded font-mono text-sm mb-4" placeholder="Paste Web App URL" value={settings.googleSheetUrl} onChange={e=>setSettingsState({...settings, googleSheetUrl:e.target.value})}/>
+                        <button onClick={()=>{saveSettings(settings); notify('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold hover:bg-safety-700 flex gap-2"><Save className="w-4 h-4"/> Save Settings</button>
+                    </div>
+                    <div className="bg-white p-6 rounded border">
+                         <h3 className="font-bold text-lg mb-4">Backup Data</h3>
+                         <div className="flex gap-4">
+                            <button onClick={()=>{const b=new Blob([JSON.stringify({inventory:inv, transactions:tx})],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();}} className="border px-4 py-2 rounded hover:bg-slate-50 flex gap-2"><Download className="w-4 h-4"/> Download</button>
+                            <label className="border px-4 py-2 rounded hover:bg-slate-50 flex gap-2 cursor-pointer"><Upload className="w-4 h-4"/> Restore <input type="file" className="hidden" accept=".json" onChange={e=>{
+                                const f=e.target.files[0]; if(!f)return;
+                                const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setInv(d.inventory); setTx(d.transactions); saveInventory(d.inventory); saveTransactions(d.transactions); notify('Restored!');}catch(x){alert('Invalid file');}}; r.readAsText(f);
+                            }}/></label>
+                         </div>
+                    </div>
+                </div>
+            );
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
-                    <InventoryModal isOpen={modal.open} onClose={()=>setModal({open:false, data:null})} onSave={handleSaveItem} initialData={modal.data}/>
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-sans text-slate-800">
+                    <InventoryModal isOpen={modalOpen} onClose={()=>setModalOpen(false)} onSave={saveItem} initialData={editItem} />
+                    
+                    {/* Notification Toast */}
                     {notif && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg z-50 animate-bounce flex gap-2"><CheckCircle className="w-5 h-5"/> {notif}</div>}
                     
-                    <aside className="bg-slate-900 text-white w-full md:w-64 flex-shrink-0 flex flex-col z-20 shadow-xl">
+                    {/* QR Modal */}
+                    {qrOpen && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={()=>setQrOpen(false)}>
+                            <div className="bg-white p-6 rounded-xl shadow-2xl text-center" onClick={e=>e.stopPropagation()}>
+                                <h3 className="font-bold text-lg mb-4">Scan for Mobile Access</h3>
+                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} className="border p-2 rounded mx-auto mb-4"/>
+                                <button onClick={()=>setQrOpen(false)} className="text-slate-400">Close</button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Sidebar */}
+                    <aside className="bg-slate-900 text-white w-full md:w-64 flex-shrink-0 flex flex-col shadow-xl z-20">
                         <div className="p-6">
-                            <div className="flex items-center gap-2 font-bold text-lg mb-1"><Shield className="text-safety-500 w-6 h-6"/> Gold Coin Bekasi</div>
+                            <div className="flex items-center gap-2 font-bold text-lg text-safety-500"><Shield className="w-6 h-6"/> Gold Coin Bekasi</div>
                             <div className="text-xs text-slate-500 pl-8">PPE Database</div>
                         </div>
                         <nav className="flex-1 px-4 space-y-2">
@@ -412,57 +528,20 @@
                             ))}
                         </nav>
                         <div className="p-4 border-t border-slate-800 space-y-2">
-                            <button onClick={()=>document.getElementById('qr-modal').style.display='flex'} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><QrCode className="w-3 h-3"/> Mobile Access</button>
+                            <button onClick={()=>setQrOpen(true)} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><QrCode className="w-3 h-3"/> Mobile Access</button>
                             <button onClick={()=>confirm('Reset App?')&&(localStorage.clear()||location.reload())} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:text-red-400"><LogOut className="w-3 h-3"/> Reset</button>
                         </div>
                     </aside>
 
-                    <main className="flex-1 overflow-auto p-4 md:p-8">
-                        <div className="max-w-6xl mx-auto space-y-6">
-                            {view==='DASHBOARD' && (
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                                    <div className="lg:col-span-1"><h2 className="font-bold mb-4">Checkout</h2><CheckoutForm inventory={inv} onSubmit={handleTx}/></div>
-                                    <div className="lg:col-span-2 space-y-6">
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                            <div className="bg-white p-4 rounded border shadow-sm"><p className="text-xs text-slate-500 font-bold uppercase">Total Items</p><p className="text-2xl font-bold">{inv.reduce((a,b)=>a+b.quantity,0)}</p></div>
-                                            <div className="bg-white p-4 rounded border shadow-sm"><p className="text-xs text-slate-500 font-bold uppercase">Low Stock</p><p className={`text-2xl font-bold ${inv.filter(i=>i.quantity<=i.threshold).length>0?'text-red-600':'text-green-600'}`}>{inv.filter(i=>i.quantity<=i.threshold).length}</p></div>
-                                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-4 rounded shadow-md"><p className="text-xs font-bold uppercase mb-1 flex gap-2"><BrainCircuit className="w-3 h-3"/> AI Insight</p><p className="text-xs opacity-90 leading-relaxed">{insight}</p></div>
-                                        </div>
-                                        <div className="bg-white p-4 rounded border shadow-sm"><h3 className="font-bold mb-4">Stock Levels</h3><StockChart data={inv}/></div>
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {view==='INVENTORY' && (
-                                <div className="space-y-4">
-                                    <div className="flex justify-between items-center"><h2 className="text-xl font-bold">Inventory</h2><button onClick={()=>{setModal({open:true, data:null})}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold hover:bg-safety-700 flex gap-2"><Plus className="w-4 h-4"/> Add Item</button></div>
-                                    <div className="bg-white rounded border overflow-auto"><table className="w-full text-sm text-left"><thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500"><tr><th className="p-4">Item</th><th className="p-4">Qty</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead><tbody>
-                                        {inv.map(i=>(<tr key={i.id} className="border-t hover:bg-slate-50"><td className="p-4 font-medium">{i.name}<div className="text-xs text-slate-400">{i.category}</div></td><td className="p-4">{i.quantity} {i.unit}</td><td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${i.quantity<=i.threshold?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>{i.quantity<=i.threshold?'Low':'OK'}</span></td><td className="p-4 text-right"><button onClick={()=>setModal({open:true, data:i})} className="p-1 text-slate-400 hover:text-indigo-600"><Edit2 className="w-4 h-4"/></button><button onClick={()=>confirm('Delete?')&&handleDelete(i.id)} className="p-1 text-slate-400 hover:text-red-600 ml-2"><Trash2 className="w-4 h-4"/></button></td></tr>))}
-                                    </tbody></table></div>
-                                </div>
-                            )}
-
-                            {view==='HISTORY' && (
-                                <div className="space-y-4">
-                                    <h2 className="text-xl font-bold">History</h2>
-                                    {txs.map(t=>(<div key={t.id} className="bg-white p-4 rounded border flex justify-between items-center"><div><div className="font-bold">{t.employeeName} <span className="text-[10px] bg-slate-100 px-1 rounded font-normal uppercase text-slate-500">{t.method}</span></div><div className="text-xs text-slate-400">{new Date(t.timestamp).toLocaleString()}</div></div><div className="text-right text-sm">{t.items.map((i,x)=><div key={x}>{i.itemName} <span className="text-red-600 font-bold">-{i.quantity}</span></div>)}</div></div>))}
-                                    {txs.length===0 && <p className="text-slate-500 text-center">No transactions.</p>}
-                                </div>
-                            )}
-
-                            {view==='SETTINGS' && <Settings onSync={load}/>}
+                    {/* Main Content */}
+                    <main className="flex-1 overflow-auto p-4 md:p-8 relative">
+                        <div className="max-w-6xl mx-auto">
+                            {view === 'DASHBOARD' && renderDashboard()}
+                            {view === 'INVENTORY' && renderInventory()}
+                            {view === 'HISTORY' && renderHistory()}
+                            {view === 'SETTINGS' && renderSettings()}
                         </div>
                     </main>
-
-                    {/* QR Modal (Hidden by default) */}
-                    <div id="qr-modal" className="fixed inset-0 z-50 hidden items-center justify-center bg-black/60 backdrop-blur-sm" onClick={(e)=>e.currentTarget.style.display='none'}>
-                        <div className="bg-white p-6 rounded-xl shadow-2xl text-center relative max-w-sm" onClick={e=>e.stopPropagation()}>
-                            <button className="absolute top-2 right-2" onClick={()=>document.getElementById('qr-modal').style.display='none'}><X className="w-5 h-5 text-slate-400"/></button>
-                            <h3 className="font-bold text-lg mb-4">Mobile Access</h3>
-                            <div className="flex justify-center mb-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} className="border p-2 rounded"/></div>
-                            <p className="text-xs text-slate-500">Scan to open on your phone</p>
-                        </div>
-                    </div>
                 </div>
             );
         };
