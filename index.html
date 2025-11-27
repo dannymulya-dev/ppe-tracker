@@ -5,33 +5,29 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gold Coin Bekasi PPE Database</title>
     
-    <!-- 1. ERROR HANDLER (This ensures you see an error instead of a white screen) -->
+    <!-- 1. ERROR HANDLER -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            // Ignore benign ResizeObserver errors from charts
-            if(msg && msg.includes && msg.includes("ResizeObserver")) return;
-            
             const root = document.getElementById('root');
             if(root) {
                 root.innerHTML = `
-                <div style="background-color: #fef2f2; color: #991b1b; padding: 40px; font-family: sans-serif; text-align: center; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                    <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 20px;">⚠️ App Crash Detected</h1>
-                    <div style="background: white; padding: 20px; border-radius: 8px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); max-width: 600px; text-align: left;">
-                        <p style="font-weight: bold; margin-bottom: 10px;">Error Message:</p>
-                        <code style="display: block; background: #f3f4f6; padding: 10px; border-radius: 4px; color: #dc2626; margin-bottom: 20px;">${msg}</code>
-                        <p style="font-size: 14px; color: #6b7280;">Line: ${line} | Column: ${col}</p>
+                <div style="padding: 40px; text-align: center; font-family: sans-serif; color: #991b1b; background: #fef2f2; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
+                    <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">⚠️ Application Error</h1>
+                    <p style="margin-bottom: 20px;">The app failed to load. Please try clearing your cache or resetting data.</p>
+                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #f87171; display: inline-block; text-align: left; margin-bottom: 20px;">
+                        <strong>Technical Details:</strong><br/>
+                        ${msg}<br/>
+                        <small>Line: ${line}</small>
                     </div>
-                    <button onclick="localStorage.clear(); window.location.reload()" style="margin-top: 30px; padding: 12px 24px; background: #dc2626; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 16px;">
-                        Reset App Data & Reload
+                    <button onclick="localStorage.clear(); window.location.reload()" style="background: #dc2626; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
+                        Reset App Data
                     </button>
-                </div>
-                `;
+                </div>`;
             }
-            return false;
         };
     </script>
 
-    <!-- 2. STYLES (Tailwind) -->
+    <!-- 2. STYLES -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -47,401 +43,306 @@
         }
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    </style>
 
-    <!-- 3. DEPENDENCIES (React, Recharts, Lucide, Gemini) -->
+    <!-- 3. DEPENDENCIES -->
     <script type="importmap">
 {
   "imports": {
     "react": "https://esm.sh/react@18.2.0",
     "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
-    "lucide-react": "https://esm.sh/lucide-react@0.330.0?external=react",
     "@google/genai": "https://esm.sh/@google/genai@0.1.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
   }
 }
 </script>
-    <!-- Babel for compiling React in browser -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
     <div id="root">
-        <!-- Loading State before React mounts -->
+        <!-- Initial Loading State -->
         <div class="h-screen flex items-center justify-center flex-col gap-4 text-slate-400">
-            <div class="w-8 h-8 border-4 border-safety-500 border-t-transparent rounded-full animate-spin"></div>
-            <p class="text-sm font-medium">Loading Gold Coin Bekasi PPE...</p>
+            <div class="w-12 h-12 border-4 border-safety-500 border-t-transparent rounded-full animate-spin"></div>
+            <p class="text-sm font-medium animate-pulse">Loading Gold Coin Bekasi System...</p>
         </div>
     </div>
 
-    <!-- 4. APPLICATION LOGIC -->
+    <!-- 4. APP LOGIC -->
     <script type="text/babel" data-type="module">
-        import React, { useState, useEffect, useRef } from 'react';
+        import React, { useState, useEffect } from 'react';
         import { createRoot } from 'react-dom/client';
-        import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
-        import { 
-            LayoutDashboard, List, History, Settings as SettingsIcon, Shield, 
-            LogOut, QrCode, X, Edit2, Trash2, Plus, Save, Download, Upload, 
-            FileJson, Link, HelpCircle, CheckCircle, Package, BrainCircuit, 
-            AlertTriangle, Mic, Send, User 
-        } from 'lucide-react';
         import { GoogleGenAI } from '@google/genai';
 
-        // --- CONSTANTS ---
-        const INITIAL_INVENTORY = [
-            { id: '1', name: 'Safety Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
-            { id: '2', name: 'Safety Helmet (Yellow)', category: 'Head', quantity: 12, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
-            { id: '3', name: 'High-Vis Vest (L)', category: 'Apparel', quantity: 8, unit: 'pcs', threshold: 15, lastUpdated: new Date().toISOString() },
-            { id: '4', name: 'High-Vis Vest (XL)', category: 'Apparel', quantity: 30, unit: 'pcs', threshold: 15, lastUpdated: new Date().toISOString() },
-            { id: '5', name: 'Cut-Resistant Gloves', category: 'Hand', quantity: 120, unit: 'pairs', threshold: 50, lastUpdated: new Date().toISOString() },
-            { id: '6', name: 'Safety Goggles', category: 'Eye', quantity: 35, unit: 'pcs', threshold: 20, lastUpdated: new Date().toISOString() },
-            { id: '7', name: 'Ear Plugs (Dispenser)', category: 'Hearing', quantity: 5, unit: 'box', threshold: 2, lastUpdated: new Date().toISOString() },
-            { id: '8', name: 'Steel Toe Boots (Sz 10)', category: 'Foot', quantity: 4, unit: 'pairs', threshold: 5, lastUpdated: new Date().toISOString() },
-        ];
-
-        const GOOGLE_SCRIPT_TEMPLATE = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var inv=[];var tx=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),employeeName:r[1],items:[{itemName:r[2],quantity:0,itemId:"0"}],timestamp:r[3],method:r[4]}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx})).setMimeType(ContentService.MimeType.JSON);}`;
-
-        // --- SERVICES (Storage, AI, Sheets) ---
-        const STORAGE_KEYS = { INVENTORY: 'ppe_inv_v2', TRANSACTIONS: 'ppe_tx_v2', SETTINGS: 'ppe_set_v2' };
-
-        // Helper: Safe JSON Parse
-        const safeParse = (key, fallback) => {
-            try {
-                const item = localStorage.getItem(key);
-                return item ? JSON.parse(item) : fallback;
-            } catch (e) {
-                console.error("Storage Error", e);
-                return fallback;
-            }
+        // --- ICONS (Internal SVGs to prevent loading errors) ---
+        const Icon = ({ path, className }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {path}
+            </svg>
+        );
+        const Icons = {
+            Dashboard: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
+            List: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+            History: <path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8" />,
+            Settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />,
+            Shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
+            Qr: <path d="M3 7V5a2 2 0 0 1 2-2h2m-4 4h4v4H3v-4zm0 10v2a2 2 0 0 0 2 2h2m-4-4h4v4H3v-4zm14 2v2a2 2 0 0 1-2 2h-2m4-4h4v4h-4v-4zm-4-14V5a2 2 0 0 1 2-2h2m-4 4h4v4h-4v-4zm6 6h2v2h-2z" />,
+            LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
+            Plus: <path d="M12 5v14M5 12h14" />,
+            Edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
+            Trash: <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />,
+            Check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" />,
+            Alert: <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />,
+            Mic: <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />,
+            Send: <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />,
+            Brain: <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
         };
 
-        const getSettings = () => safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', googleSheetUrl: '', lastSync: null });
-        const saveSettings = (s) => localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(s));
+        // --- DATA & CONSTANTS ---
+        const INITIAL_INVENTORY = [
+            { id: '1', name: 'Safety Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10 },
+            { id: '2', name: 'Safety Helmet (Yellow)', category: 'Head', quantity: 12, unit: 'pcs', threshold: 10 },
+            { id: '3', name: 'High-Vis Vest (L)', category: 'Apparel', quantity: 8, unit: 'pcs', threshold: 15 },
+            { id: '4', name: 'High-Vis Vest (XL)', category: 'Apparel', quantity: 30, unit: 'pcs', threshold: 15 },
+            { id: '5', name: 'Cut-Resistant Gloves', category: 'Hand', quantity: 120, unit: 'pairs', threshold: 50 },
+            { id: '6', name: 'Safety Goggles', category: 'Eye', quantity: 35, unit: 'pcs', threshold: 20 },
+            { id: '7', name: 'Ear Plugs (Dispenser)', category: 'Hearing', quantity: 5, unit: 'box', threshold: 2 },
+            { id: '8', name: 'Steel Toe Boots (Sz 10)', category: 'Foot', quantity: 4, unit: 'pairs', threshold: 5 },
+        ];
+        const STORAGE_KEYS = { INVENTORY: 'gc_inv', TRANSACTIONS: 'gc_tx', SETTINGS: 'gc_set' };
+        const SCRIPT_TEMPLATE = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,6).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}`;
 
-        const getInventory = () => safeParse(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY);
-        const saveInventory = (d) => localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(d));
+        // --- SERVICES ---
+        const safeParse = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
+        const saveData = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+        
+        const syncSheets = async (url, inv, tx) => {
+            if(!url) return;
+            try { await fetch(url, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: tx }) }); } catch(e) { console.log('Sync error', e); }
+        };
 
-        const getTransactions = () => safeParse(STORAGE_KEYS.TRANSACTIONS, []);
-        const saveTransactions = (d) => localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(d));
-
-        // AI Service
-        const runAiCheckout = async (prompt, inventory) => {
-            const { apiKey } = getSettings();
-            if (!apiKey) throw new Error("Please add your Gemini API Key in Settings first.");
-            
+        const runAi = async (apiKey, prompt, inventory) => {
+            if(!apiKey) throw new Error("Missing API Key");
             const ai = new GoogleGenAI({ apiKey });
             const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-            
             const invList = inventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
-            const sysPrompt = `You are a PPE Inventory Assistant.
-            Inventory:
-            ${invList}
-            
-            Task: Extract user request into JSON.
-            1. Employee Name (default 'Unknown').
-            2. Items: Map fuzzy names to EXACT inventory list names.
-            3. Output JSON only: { "employeeName": string, "items": [{ "itemNameTarget": string, "quantity": number }] }`;
-
-            const result = await model.generateContent({
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                generationConfig: { responseMimeType: "application/json" },
-                systemInstruction: { parts: [{ text: sysPrompt }] }
-            });
-            
-            return JSON.parse(result.response.text());
-        };
-
-        const runAiInsight = async (inventory) => {
-            const { apiKey } = getSettings();
-            if (!apiKey) return "AI Insights disabled (No API Key).";
-            
-            try {
-                const ai = new GoogleGenAI({ apiKey });
-                const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-                const dataStr = JSON.stringify(inventory.map(i => ({n:i.name, q:i.quantity, t:i.threshold})));
-                const result = await model.generateContent(`Analyze stock levels: ${dataStr}. Write 1 short sentence advising the safety officer.`);
-                return result.response.text();
-            } catch (e) {
-                return "Could not generate insight.";
-            }
-        };
-
-        // Sheets Service
-        const syncSheet = async (inv, tx) => {
-            const { googleSheetUrl } = getSettings();
-            if (!googleSheetUrl) return;
-            try {
-                await fetch(googleSheetUrl, {
-                    method: 'POST', mode: 'no-cors',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: tx })
-                });
-            } catch (e) { console.error("Sync failed", e); }
-        };
-
-        const loadSheet = async () => {
-            const { googleSheetUrl } = getSettings();
-            if (!googleSheetUrl) return null;
-            try {
-                const res = await fetch(`${googleSheetUrl}?action=GET_DATA`);
-                const data = await res.json();
-                return (data && data.status === 'success') ? data : null;
-            } catch (e) { return null; }
+            const sys = `Extract to JSON: { "employeeName": string, "items": [{ "itemNameTarget": string, "quantity": number }] }. Map fuzzy names to: \n${invList}`;
+            const res = await model.generateContent({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { responseMimeType: "application/json" } });
+            return JSON.parse(res.response.text());
         };
 
         // --- COMPONENTS ---
-
-        // 1. Chart
-        const StockChart = ({ data }) => {
-            const chartData = data.map(i => ({
-                name: i.name.split('(')[0].trim(),
-                quantity: i.quantity,
-                threshold: i.threshold
-            }));
-            
+        
+        // 1. SIMPLE BAR CHART (No External Libs)
+        const SimpleChart = ({ data }) => {
+            const max = Math.max(...data.map(i=>i.quantity), 1);
             return (
-                <div className="h-64 w-full">
-                    <ResponsiveContainer>
-                        <BarChart data={chartData} margin={{top:10, right:10, left:-20, bottom:0}}>
-                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9"/>
-                            <XAxis dataKey="name" tick={{fontSize:10, fill:'#64748b'}} interval={0} angle={-15} textAnchor="end" height={40}/>
-                            <YAxis tick={{fontSize:11, fill:'#64748b'}}/>
-                            <Tooltip cursor={{fill:'#f8fafc'}} contentStyle={{borderRadius:'8px', border:'none', boxShadow:'0 4px 6px -1px rgba(0,0,0,0.1)'}}/>
-                            <Bar dataKey="quantity" radius={[4,4,0,0]}>
-                                {chartData.map((e, i) => (
-                                    <Cell key={i} fill={e.quantity <= e.threshold ? '#ef4444' : '#3b82f6'}/>
-                                ))}
-                            </Bar>
-                        </BarChart>
-                    </ResponsiveContainer>
+                <div className="h-64 flex items-end gap-2 w-full pt-8 pb-2 overflow-x-auto">
+                    {data.map(i => {
+                        const h = (i.quantity / max) * 100;
+                        const isLow = i.quantity <= i.threshold;
+                        return (
+                            <div key={i.id} className="flex-1 min-w-[40px] h-full flex flex-col justify-end group relative">
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                                    {i.name}: {i.quantity}
+                                </div>
+                                <div style={{height: `${h}%`}} className={`w-full rounded-t ${isLow ? 'bg-red-500' : 'bg-safety-500'} opacity-80 group-hover:opacity-100 transition-all`}></div>
+                                <div className="text-[10px] text-slate-400 mt-1 truncate text-center">{i.name.substring(0,6)}..</div>
+                            </div>
+                        );
+                    })}
                 </div>
             );
         };
 
-        // 2. Inventory Modal (Add/Edit)
-        const InventoryModal = ({ isOpen, onClose, onSave, initialData }) => {
-            const [form, setForm] = useState({ name:'', category:'General', quantity:0, unit:'pcs', threshold:5 });
-            
-            useEffect(() => {
-                if(isOpen) setForm(initialData || { name:'', category:'General', quantity:0, unit:'pcs', threshold:5 });
-            }, [isOpen, initialData]);
-
+        // 2. MODAL
+        const Modal = ({ isOpen, onClose, title, children }) => {
             if(!isOpen) return null;
-
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose}>
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md m-4 p-6" onClick={e=>e.stopPropagation()}>
                         <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">{initialData ? 'Edit Item' : 'Add Item'}</h3>
-                            <button onClick={onClose}><X className="w-5 h-5 text-slate-400"/></button>
+                            <h3 className="font-bold text-lg">{title}</h3>
+                            <button onClick={onClose}><Icon path={Icons.Plus} className="rotate-45 text-slate-400 w-6 h-6"/></button>
                         </div>
-                        <form onSubmit={(e) => { e.preventDefault(); onSave(form); }} className="space-y-4">
-                            <div><label className="text-xs font-bold text-slate-500">NAME</label><input className="w-full p-2 border rounded" required value={form.name} onChange={e=>setForm({...form, name:e.target.value})}/></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs font-bold text-slate-500">CATEGORY</label><select className="w-full p-2 border rounded" value={form.category} onChange={e=>setForm({...form, category:e.target.value})}><option>General</option><option>Head</option><option>Eye</option><option>Hand</option><option>Foot</option><option>Apparel</option></select></div>
-                                <div><label className="text-xs font-bold text-slate-500">UNIT</label><input className="w-full p-2 border rounded" value={form.unit} onChange={e=>setForm({...form, unit:e.target.value})}/></div>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div><label className="text-xs font-bold text-slate-500">QTY</label><input type="number" className="w-full p-2 border rounded" value={form.quantity} onChange={e=>setForm({...form, quantity:parseInt(e.target.value)||0})}/></div>
-                                <div><label className="text-xs font-bold text-slate-500">LIMIT</label><input type="number" className="w-full p-2 border rounded" value={form.threshold} onChange={e=>setForm({...form, threshold:parseInt(e.target.value)||0})}/></div>
-                            </div>
-                            <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Save Item</button>
-                        </form>
+                        {children}
                     </div>
                 </div>
             );
         };
 
-        // 3. Main App Component
+        // 3. MAIN APP
         const App = () => {
+            // State
             const [view, setView] = useState('DASHBOARD');
-            const [inv, setInv] = useState([]);
+            const [inv, setInv] = useState(INITIAL_INVENTORY);
             const [tx, setTx] = useState([]);
-            const [loading, setLoading] = useState(true);
+            const [settings, setSettings] = useState({ apiKey: '', sheetUrl: '' });
             const [notif, setNotif] = useState(null);
             
-            // Modal State
-            const [modalOpen, setModalOpen] = useState(false);
+            // Modal States
             const [editItem, setEditItem] = useState(null);
+            const [modalOpen, setModalOpen] = useState(false);
+            const [qrOpen, setQrOpen] = useState(false);
             
-            // Checkout State
+            // Checkout States
             const [coTab, setCoTab] = useState('manual');
-            const [coForm, setCoForm] = useState({ name:'', item:'', qty:1 });
+            const [coData, setCoData] = useState({ name: '', item: '', qty: 1 });
             const [aiPrompt, setAiPrompt] = useState('');
             const [aiLoad, setAiLoad] = useState(false);
-            const [insight, setInsight] = useState('Loading insight...');
 
-            // QR State
-            const [qrOpen, setQrOpen] = useState(false);
-
-            // Settings State
-            const [settings, setSettingsState] = useState(getSettings());
-
-            // --- EFFECTS ---
+            // Init
             useEffect(() => {
-                const init = async () => {
-                    const cloud = await loadSheet();
-                    if(cloud && cloud.inventory) {
-                        setInv(cloud.inventory);
-                        setTx(cloud.transactions || []);
-                        saveInventory(cloud.inventory);
-                        saveTransactions(cloud.transactions || []);
-                    } else {
-                        setInv(getInventory());
-                        setTx(getTransactions());
-                    }
-                    setLoading(false);
-                };
-                init();
+                setInv(safeParse(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY));
+                setTx(safeParse(STORAGE_KEYS.TRANSACTIONS, []));
+                setSettings(safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' }));
             }, []);
 
-            useEffect(() => {
-                if(inv.length > 0) runAiInsight(inv).then(setInsight);
-            }, [inv]);
-
-            // --- HANDLERS ---
-            const notify = (msg) => { setNotif(msg); setTimeout(()=>setNotif(null), 3000); };
-
-            const handleCheckout = async (name, items, method) => {
-                const newTx = {
-                    id: Date.now().toString(),
-                    employeeName: name,
-                    timestamp: new Date().toISOString(),
-                    method,
-                    items: items.map(i => ({ 
-                        itemId: i.itemId, 
-                        quantity: i.quantity, 
-                        itemName: inv.find(x=>x.id===i.itemId)?.name || 'Unknown' 
-                    }))
-                };
-
-                const newInv = inv.map(item => {
-                    const match = items.find(x => x.itemId === item.id);
-                    return match ? { ...item, quantity: Math.max(0, item.quantity - match.quantity) } : item;
-                });
-
-                setInv(newInv); setTx([newTx, ...tx]);
-                saveInventory(newInv); saveTransactions([newTx, ...tx]);
-                syncSheet(newInv, [newTx, ...tx]);
-                notify('Checkout Successful!');
+            // Actions
+            const notify = (msg) => { setNotif(msg); setTimeout(() => setNotif(null), 3000); };
+            
+            const updateStock = (newInv, newTxItem) => {
+                setInv(newInv); saveData(STORAGE_KEYS.INVENTORY, newInv);
+                if(newTxItem) {
+                    const newTxHistory = [newTxItem, ...tx];
+                    setTx(newTxHistory); saveData(STORAGE_KEYS.TRANSACTIONS, newTxHistory);
+                    syncSheets(settings.sheetUrl, newInv, newTxHistory);
+                } else {
+                    syncSheets(settings.sheetUrl, newInv, tx);
+                }
             };
 
-            const processAiCheckout = async (e) => {
+            const handleCheckout = (name, itemId, qty, method) => {
+                const item = inv.find(i => i.id === itemId);
+                if(!item) return;
+                
+                const newInv = inv.map(i => i.id === itemId ? { ...i, quantity: Math.max(0, i.quantity - qty) } : i);
+                const newTx = { id: Date.now(), employeeName: name, timestamp: new Date().toISOString(), method, items: [{ itemName: item.name, quantity: qty }] };
+                
+                updateStock(newInv, newTx);
+                notify('Checkout Successful!');
+                setCoData({ name: '', item: '', qty: 1 });
+            };
+
+            const handleAi = async (e) => {
                 e.preventDefault();
                 setAiLoad(true);
                 try {
-                    const data = await runAiCheckout(aiPrompt, inv);
-                    const itemsToCo = [];
+                    const data = await runAi(settings.apiKey, aiPrompt, inv);
+                    const items = [];
                     data.items.forEach(req => {
                         const found = inv.find(i => i.name === req.itemNameTarget);
-                        if(found) itemsToCo.push({ itemId: found.id, quantity: req.quantity });
+                        if(found) handleCheckout(data.employeeName||'Unknown', found.id, req.quantity, 'AI');
                     });
-                    
-                    if(itemsToCo.length === 0) throw new Error("No items matched inventory.");
-                    
-                    handleCheckout(data.employeeName || 'Unknown', itemsToCo, 'AI');
                     setAiPrompt('');
-                } catch(err) {
-                    alert(err.message);
-                } finally {
-                    setAiLoad(false);
-                }
+                } catch(e) { alert(e.message); }
+                setAiLoad(false);
             };
 
-            const saveItem = async (itemData) => {
+            const saveItem = (e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target);
+                const item = {
+                    id: editItem ? editItem.id : Date.now().toString(),
+                    name: formData.get('name'),
+                    category: formData.get('category'),
+                    quantity: Number(formData.get('quantity')),
+                    unit: formData.get('unit'),
+                    threshold: Number(formData.get('threshold'))
+                };
+                
                 let newInv;
-                if(editItem) {
-                    newInv = inv.map(i => i.id === editItem.id ? { ...itemData, id: i.id } : i);
-                } else {
-                    newInv = [...inv, { ...itemData, id: Date.now().toString(), lastUpdated: new Date().toISOString() }];
-                }
-                setInv(newInv); saveInventory(newInv); syncSheet(newInv, tx);
-                setModalOpen(false); setEditItem(null); notify('Inventory Updated');
+                if(editItem) newInv = inv.map(i => i.id === item.id ? item : i);
+                else newInv = [...inv, item];
+                
+                updateStock(newInv);
+                setModalOpen(false);
+                notify('Inventory Updated');
             };
 
-            const deleteItem = async (id) => {
-                if(!confirm('Delete item?')) return;
-                const newInv = inv.filter(i => i.id !== id);
-                setInv(newInv); saveInventory(newInv); syncSheet(newInv, tx);
+            const deleteItem = (id) => {
+                if(!confirm('Delete?')) return;
+                updateStock(inv.filter(i => i.id !== id));
                 notify('Item Deleted');
             };
 
-            if(loading) return null; // handled by HTML loader
-
-            // --- RENDER HELPERS ---
-            const renderDashboard = () => (
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                    {/* Checkout Card */}
-                    <div className="lg:col-span-1 bg-white rounded-xl shadow-sm border p-6 h-fit">
-                        <h2 className="font-bold text-lg mb-4 flex items-center gap-2"><Package className="w-5 h-5"/> Quick Checkout</h2>
+            // Views
+            const Dashboard = () => (
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
+                    <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border h-fit">
+                        <h2 className="font-bold mb-4 flex gap-2"><Icon path={Icons.List} className="w-5 h-5"/> Quick Checkout</h2>
                         <div className="flex border-b mb-4">
                             <button onClick={()=>setCoTab('manual')} className={`flex-1 py-2 text-sm font-bold ${coTab==='manual'?'text-safety-600 border-b-2 border-safety-600':''}`}>Manual</button>
                             <button onClick={()=>setCoTab('ai')} className={`flex-1 py-2 text-sm font-bold ${coTab==='ai'?'text-indigo-600 border-b-2 border-indigo-600':''}`}>AI Voice</button>
                         </div>
                         {coTab === 'manual' ? (
-                            <form onSubmit={e=>{e.preventDefault(); handleCheckout(coForm.name, [{itemId:coForm.item, quantity:coForm.qty}], 'MANUAL'); setCoForm({name:'', item:'', qty:1});}} className="space-y-3">
-                                <input placeholder="Employee Name" className="w-full p-2 border rounded bg-slate-50" required value={coForm.name} onChange={e=>setCoForm({...coForm, name:e.target.value})}/>
-                                <select className="w-full p-2 border rounded bg-slate-50" required value={coForm.item} onChange={e=>setCoForm({...coForm, item:e.target.value})}>
+                            <form onSubmit={e=>{e.preventDefault(); handleCheckout(coData.name, coData.item, coData.qty, 'MANUAL');}} className="space-y-3">
+                                <input className="w-full p-2 border rounded" placeholder="Employee Name" required value={coData.name} onChange={e=>setCoData({...coData, name: e.target.value})}/>
+                                <select className="w-full p-2 border rounded" required value={coData.item} onChange={e=>setCoData({...coData, item: e.target.value})}>
                                     <option value="">Select Item...</option>
                                     {inv.map(i=><option key={i.id} value={i.id} disabled={i.quantity===0}>{i.name} ({i.quantity})</option>)}
                                 </select>
-                                <input type="number" min="1" className="w-full p-2 border rounded bg-slate-50" required value={coForm.qty} onChange={e=>setCoForm({...coForm, qty:parseInt(e.target.value)||1})}/>
-                                <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Checkout</button>
+                                <input type="number" min="1" className="w-full p-2 border rounded" required value={coData.qty} onChange={e=>setCoData({...coData, qty: Number(e.target.value)||1})}/>
+                                <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Submit</button>
                             </form>
                         ) : (
-                            <form onSubmit={processAiCheckout} className="space-y-3">
-                                <div className="bg-indigo-50 p-2 rounded text-xs text-indigo-700">Ex: "Mike took 2 helmets"</div>
-                                <textarea className="w-full p-2 border rounded h-24" placeholder="Type request..." value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)} required></textarea>
+                            <form onSubmit={handleAi} className="space-y-3">
+                                <p className="text-xs text-indigo-600 bg-indigo-50 p-2 rounded">Try: "Mike took 2 helmets"</p>
+                                <textarea className="w-full p-2 border rounded h-24" placeholder="Type here..." required value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)}></textarea>
                                 <button disabled={aiLoad} className="w-full bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">{aiLoad?'Processing...':'Process with AI'}</button>
                             </form>
                         )}
                     </div>
-
-                    {/* Stats & Charts */}
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div className="bg-white p-4 rounded border shadow-sm">
-                                <p className="text-xs text-slate-500 font-bold uppercase">Total Items</p>
+                        <div className="grid grid-cols-3 gap-4">
+                            <div className="bg-white p-4 rounded shadow border">
+                                <p className="text-xs font-bold text-slate-500 uppercase">Total Items</p>
                                 <p className="text-2xl font-bold">{inv.reduce((a,b)=>a+b.quantity,0)}</p>
                             </div>
-                            <div className="bg-white p-4 rounded border shadow-sm">
-                                <p className="text-xs text-slate-500 font-bold uppercase">Low Stock</p>
+                            <div className="bg-white p-4 rounded shadow border">
+                                <p className="text-xs font-bold text-slate-500 uppercase">Low Stock</p>
                                 <p className={`text-2xl font-bold ${inv.some(i=>i.quantity<=i.threshold)?'text-red-600':'text-green-600'}`}>{inv.filter(i=>i.quantity<=i.threshold).length}</p>
                             </div>
                             <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-4 rounded shadow">
-                                <p className="text-xs font-bold uppercase flex gap-1"><BrainCircuit className="w-3 h-3"/> AI Insight</p>
-                                <p className="text-xs mt-1 opacity-90">{insight}</p>
+                                <p className="text-xs font-bold uppercase flex gap-1"><Icon path={Icons.Brain} className="w-3 h-3"/> System Status</p>
+                                <p className="text-sm mt-1 opacity-90">Ready to process requests.</p>
                             </div>
                         </div>
-                        <div className="bg-white p-4 rounded border shadow-sm">
+                        <div className="bg-white p-6 rounded shadow border">
                             <h3 className="font-bold mb-4">Stock Overview</h3>
-                            <StockChart data={inv}/>
+                            <SimpleChart data={inv}/>
                         </div>
                     </div>
                 </div>
             );
 
-            const renderInventory = () => (
-                <div className="space-y-4">
+            const Inventory = () => (
+                <div className="space-y-4 animate-fade-in">
                     <div className="flex justify-between items-center">
                         <h2 className="text-xl font-bold">Inventory List</h2>
-                        <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold hover:bg-safety-700 flex gap-2"><Plus className="w-4 h-4"/> Add Item</button>
+                        <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex gap-2"><Icon path={Icons.Plus} className="w-5 h-5"/> Add Item</button>
                     </div>
-                    <div className="bg-white rounded border overflow-auto">
+                    <div className="bg-white rounded border overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
-                                <tr><th className="p-4">Item</th><th className="p-4">Qty</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr>
-                            </thead>
+                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500"><tr><th className="p-4">Item</th><th className="p-4">Qty</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead>
                             <tbody className="divide-y">
                                 {inv.map(i=>(
                                     <tr key={i.id} className="hover:bg-slate-50">
                                         <td className="p-4"><div className="font-bold">{i.name}</div><div className="text-xs text-slate-400">{i.category}</div></td>
                                         <td className="p-4">{i.quantity} {i.unit}</td>
                                         <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${i.quantity<=i.threshold?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>{i.quantity<=i.threshold?'Low':'OK'}</span></td>
-                                        <td className="p-4 text-right">
-                                            <button onClick={()=>{setEditItem(i); setModalOpen(true);}} className="p-2 text-slate-400 hover:text-indigo-600"><Edit2 className="w-4 h-4"/></button>
-                                            <button onClick={()=>deleteItem(i.id)} className="p-2 text-slate-400 hover:text-red-600"><Trash2 className="w-4 h-4"/></button>
+                                        <td className="p-4 text-right flex justify-end gap-2">
+                                            <button onClick={()=>{setEditItem(i); setModalOpen(true);}} className="text-slate-400 hover:text-indigo-600"><Icon path={Icons.Edit} className="w-4 h-4"/></button>
+                                            <button onClick={()=>deleteItem(i.id)} className="text-slate-400 hover:text-red-600"><Icon path={Icons.Trash} className="w-4 h-4"/></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -451,97 +352,109 @@
                 </div>
             );
 
-            const renderHistory = () => (
-                <div className="space-y-4">
-                    <h2 className="text-xl font-bold">Transaction History</h2>
-                    {tx.map(t => (
-                        <div key={t.id} className="bg-white p-4 rounded border flex justify-between items-center">
+            const HistoryView = () => (
+                <div className="space-y-4 animate-fade-in">
+                    <h2 className="text-xl font-bold">History Log</h2>
+                    {tx.length === 0 && <p className="text-slate-500">No transactions found.</p>}
+                    {tx.map((t, idx) => (
+                        <div key={idx} className="bg-white p-4 rounded border flex justify-between items-center">
                             <div>
-                                <div className="font-bold text-slate-800">{t.employeeName} <span className="text-[10px] border px-1 rounded text-slate-500">{t.method}</span></div>
+                                <div className="font-bold">{t.employeeName} <span className="text-xs border px-1 rounded text-slate-500">{t.method}</span></div>
                                 <div className="text-xs text-slate-400">{new Date(t.timestamp).toLocaleString()}</div>
                             </div>
                             <div className="text-right">
-                                {t.items.map((i,x)=>(<div key={x} className="text-sm">{i.itemName} <span className="text-red-600 font-bold">-{i.quantity}</span></div>))}
+                                {t.items.map((i, k)=><div key={k} className="text-sm">{i.itemName} <span className="text-red-600 font-bold">-{i.quantity}</span></div>)}
                             </div>
                         </div>
                     ))}
-                    {tx.length === 0 && <p className="text-center text-slate-400">No transactions yet.</p>}
                 </div>
             );
 
-            const renderSettings = () => (
-                <div className="max-w-2xl mx-auto space-y-6 pb-12">
+            const SettingsView = () => (
+                <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
                     <div className="bg-white p-6 rounded border">
-                        <h3 className="font-bold text-lg mb-4 flex gap-2"><BrainCircuit className="w-5 h-5 text-indigo-600"/> AI Settings</h3>
-                        <p className="text-xs text-slate-500 mb-2">Get Key from <a href="https://aistudio.google.com" target="_blank" className="underline">aistudio.google.com</a></p>
-                        <input type="password" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste Gemini API Key" value={settings.apiKey} onChange={e=>setSettingsState({...settings, apiKey:e.target.value})}/>
+                        <h3 className="font-bold text-lg mb-4">Gemini AI Key</h3>
+                        <input type="password" className="w-full p-2 border rounded mb-2" value={settings.apiKey} onChange={e=>setSettings({...settings, apiKey:e.target.value})} placeholder="Paste Key Here"/>
+                        <p className="text-xs text-slate-500">Required for AI voice features.</p>
                     </div>
                     <div className="bg-white p-6 rounded border">
-                        <h3 className="font-bold text-lg mb-4 flex gap-2"><Link className="w-5 h-5 text-green-600"/> Google Sheets Sync</h3>
-                        <textarea readOnly className="w-full h-24 bg-slate-900 text-slate-300 text-xs font-mono p-2 rounded mb-2" value={GOOGLE_SCRIPT_TEMPLATE}></textarea>
-                        <input className="w-full p-2 border rounded font-mono text-sm mb-4" placeholder="Paste Web App URL" value={settings.googleSheetUrl} onChange={e=>setSettingsState({...settings, googleSheetUrl:e.target.value})}/>
-                        <button onClick={()=>{saveSettings(settings); notify('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold hover:bg-safety-700 flex gap-2"><Save className="w-4 h-4"/> Save Settings</button>
+                        <h3 className="font-bold text-lg mb-4">Google Sheets Sync</h3>
+                        <textarea readOnly className="w-full h-20 bg-slate-900 text-slate-300 text-xs p-2 rounded mb-2" value={SCRIPT_TEMPLATE}></textarea>
+                        <input className="w-full p-2 border rounded mb-4" value={settings.sheetUrl} onChange={e=>setSettings({...settings, sheetUrl:e.target.value})} placeholder="Paste Web App URL"/>
+                        <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); notify('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold w-full">Save Settings</button>
                     </div>
                     <div className="bg-white p-6 rounded border">
-                         <h3 className="font-bold text-lg mb-4">Backup Data</h3>
-                         <div className="flex gap-4">
-                            <button onClick={()=>{const b=new Blob([JSON.stringify({inventory:inv, transactions:tx})],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();}} className="border px-4 py-2 rounded hover:bg-slate-50 flex gap-2"><Download className="w-4 h-4"/> Download</button>
-                            <label className="border px-4 py-2 rounded hover:bg-slate-50 flex gap-2 cursor-pointer"><Upload className="w-4 h-4"/> Restore <input type="file" className="hidden" accept=".json" onChange={e=>{
-                                const f=e.target.files[0]; if(!f)return;
-                                const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setInv(d.inventory); setTx(d.transactions); saveInventory(d.inventory); saveTransactions(d.transactions); notify('Restored!');}catch(x){alert('Invalid file');}}; r.readAsText(f);
-                            }}/></label>
-                         </div>
+                        <h3 className="font-bold mb-4">Data Management</h3>
+                        <div className="flex gap-4">
+                            <button onClick={()=>{const b=new Blob([JSON.stringify({inv,tx})],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();}} className="border px-4 py-2 rounded flex-1 hover:bg-slate-50">Download Backup</button>
+                            <label className="border px-4 py-2 rounded flex-1 hover:bg-slate-50 text-center cursor-pointer">
+                                Restore <input type="file" className="hidden" accept=".json" onChange={e=>{
+                                    const f=e.target.files[0]; if(!f)return;
+                                    const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setInv(d.inv); setTx(d.tx); saveData(STORAGE_KEYS.INVENTORY, d.inv); saveData(STORAGE_KEYS.TRANSACTIONS, d.tx); notify('Restored');}catch{alert('Error');}}; r.readAsText(f);
+                                }}/>
+                            </label>
+                        </div>
                     </div>
                 </div>
             );
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 font-sans text-slate-800">
-                    <InventoryModal isOpen={modalOpen} onClose={()=>setModalOpen(false)} onSave={saveItem} initialData={editItem} />
-                    
-                    {/* Notification Toast */}
-                    {notif && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg z-50 animate-bounce flex gap-2"><CheckCircle className="w-5 h-5"/> {notif}</div>}
-                    
-                    {/* QR Modal */}
-                    {qrOpen && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={()=>setQrOpen(false)}>
-                            <div className="bg-white p-6 rounded-xl shadow-2xl text-center" onClick={e=>e.stopPropagation()}>
-                                <h3 className="font-bold text-lg mb-4">Scan for Mobile Access</h3>
-                                <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} className="border p-2 rounded mx-auto mb-4"/>
-                                <button onClick={()=>setQrOpen(false)} className="text-slate-400">Close</button>
-                            </div>
-                        </div>
-                    )}
-
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-800">
                     {/* Sidebar */}
-                    <aside className="bg-slate-900 text-white w-full md:w-64 flex-shrink-0 flex flex-col shadow-xl z-20">
-                        <div className="p-6">
-                            <div className="flex items-center gap-2 font-bold text-lg text-safety-500"><Shield className="w-6 h-6"/> Gold Coin Bekasi</div>
+                    <aside className="bg-slate-900 text-white w-full md:w-64 p-4 flex flex-col shrink-0 shadow-xl z-10">
+                        <div className="mb-8 p-2">
+                            <div className="flex items-center gap-2 font-bold text-lg text-safety-500"><Icon path={Icons.Shield} className="w-6 h-6"/> Gold Coin Bekasi</div>
                             <div className="text-xs text-slate-500 pl-8">PPE Database</div>
                         </div>
-                        <nav className="flex-1 px-4 space-y-2">
+                        <nav className="flex-1 space-y-2">
                             {['DASHBOARD','INVENTORY','HISTORY','SETTINGS'].map(v => (
                                 <button key={v} onClick={()=>setView(v)} className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm font-medium ${view===v?'bg-safety-600':'text-slate-400 hover:bg-slate-800'}`}>
-                                    {v==='DASHBOARD'?<LayoutDashboard className="w-4 h-4"/>:v==='INVENTORY'?<List className="w-4 h-4"/>:v==='HISTORY'?<History className="w-4 h-4"/>:<SettingsIcon className="w-4 h-4"/>} 
-                                    {v.charAt(0)+v.slice(1).toLowerCase()}
+                                    <Icon path={Icons[v.charAt(0)+v.slice(1).toLowerCase()]} className="w-4 h-4"/> {v.charAt(0)+v.slice(1).toLowerCase()}
                                 </button>
                             ))}
                         </nav>
-                        <div className="p-4 border-t border-slate-800 space-y-2">
-                            <button onClick={()=>setQrOpen(true)} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><QrCode className="w-3 h-3"/> Mobile Access</button>
-                            <button onClick={()=>confirm('Reset App?')&&(localStorage.clear()||location.reload())} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:text-red-400"><LogOut className="w-3 h-3"/> Reset</button>
+                        <div className="pt-4 border-t border-slate-800 space-y-2">
+                            <button onClick={()=>setQrOpen(true)} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><Icon path={Icons.Qr} className="w-3 h-3"/> Mobile Access</button>
+                            <button onClick={()=>confirm('Reset?')&&(localStorage.clear()||location.reload())} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:text-red-400"><Icon path={Icons.LogOut} className="w-3 h-3"/> Reset App</button>
                         </div>
                     </aside>
 
-                    {/* Main Content */}
-                    <main className="flex-1 overflow-auto p-4 md:p-8 relative">
+                    {/* Main */}
+                    <main className="flex-1 p-4 md:p-8 overflow-y-auto">
                         <div className="max-w-6xl mx-auto">
-                            {view === 'DASHBOARD' && renderDashboard()}
-                            {view === 'INVENTORY' && renderInventory()}
-                            {view === 'HISTORY' && renderHistory()}
-                            {view === 'SETTINGS' && renderSettings()}
+                            {view === 'DASHBOARD' && <Dashboard />}
+                            {view === 'INVENTORY' && <Inventory />}
+                            {view === 'HISTORY' && <HistoryView />}
+                            {view === 'SETTINGS' && <SettingsView />}
                         </div>
                     </main>
+
+                    {/* Toast */}
+                    {notif && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg animate-bounce flex gap-2 z-50"><Icon path={Icons.Check} className="w-5 h-5"/> {notif}</div>}
+                    
+                    {/* QR Modal */}
+                    <Modal isOpen={qrOpen} onClose={()=>setQrOpen(false)} title="Mobile Access">
+                        <div className="text-center">
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} className="mx-auto border p-2 rounded mb-4"/>
+                            <p className="text-sm text-slate-500">Scan to open on mobile.</p>
+                        </div>
+                    </Modal>
+
+                    {/* Inventory Modal */}
+                    <Modal isOpen={modalOpen} onClose={()=>setModalOpen(false)} title={editItem ? 'Edit Item' : 'Add Item'}>
+                        <form onSubmit={saveItem} className="space-y-4">
+                            <div><label className="text-xs font-bold text-slate-500">NAME</label><input name="name" className="w-full p-2 border rounded" required defaultValue={editItem?.name}/></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-slate-500">CATEGORY</label><select name="category" className="w-full p-2 border rounded" defaultValue={editItem?.category||'General'}><option>Head</option><option>Eye</option><option>Hand</option><option>Foot</option><option>Apparel</option><option>General</option></select></div>
+                                <div><label className="text-xs font-bold text-slate-500">UNIT</label><input name="unit" className="w-full p-2 border rounded" defaultValue={editItem?.unit||'pcs'}/></div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div><label className="text-xs font-bold text-slate-500">QTY</label><input name="quantity" type="number" className="w-full p-2 border rounded" required defaultValue={editItem?.quantity||0}/></div>
+                                <div><label className="text-xs font-bold text-slate-500">LIMIT</label><input name="threshold" type="number" className="w-full p-2 border rounded" defaultValue={editItem?.threshold||5}/></div>
+                            </div>
+                            <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Save</button>
+                        </form>
+                    </Modal>
                 </div>
             );
         };
