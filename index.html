@@ -5,16 +5,27 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gold Coin Bekasi PPE Database</title>
     
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- Fonts -->
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    
-    <!-- Babel for JSX -->
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <!-- 1. Error Handler -->
+    <script>
+        window.onerror = function(msg, url, line, col, error) {
+            if(msg.includes("ResizeObserver")) return;
+            const root = document.getElementById('root');
+            if(root) {
+                root.innerHTML = `
+                <div style="color: #ef4444; padding: 40px; font-family: sans-serif; text-align: center;">
+                    <h1 style="font-size: 24px; margin-bottom: 10px;">⚠️ Application Error</h1>
+                    <p style="font-size: 16px; color: #374151;">${msg}</p>
+                    <p style="font-size: 14px; color: #6b7280;">Line: ${line}</p>
+                    <button onclick="localStorage.clear(); window.location.reload()" style="margin-top: 20px; padding: 10px 20px; background: #374151; color: white; border: none; border-radius: 6px; cursor: pointer;">Reset App Data</button>
+                </div>
+                `;
+            }
+            return false;
+        };
+    </script>
 
-    <!-- Tailwind Config -->
+    <!-- 2. Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -22,46 +33,45 @@
                     colors: {
                         safety: { 50: '#fff7ed', 100: '#ffedd5', 500: '#f97316', 600: '#ea580c', 700: '#c2410c' }
                     },
-                    fontFamily: {
-                        sans: ['Inter', 'sans-serif'],
-                    }
+                    fontFamily: { sans: ['Inter', 'sans-serif'] }
                 }
             }
         }
     </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
-    <!-- Import Map -->
+    <!-- 3. Import Maps (Libraries) -->
     <script type="importmap">
 {
   "imports": {
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
+    "@google/genai": "https://esm.sh/@google/genai@0.1.1",
+    "recharts": "https://esm.sh/recharts@2.12.0?external=react,react-dom",
+    "lucide-react": "https://esm.sh/lucide-react@0.330.0?external=react",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/"
   }
 }
 </script>
+    <!-- Babel for JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-800 antialiased">
     <div id="root"></div>
 
+    <!-- 4. Application Logic -->
     <script type="text/babel" data-type="module">
         import React, { useState, useEffect, useRef } from 'react';
         import { createRoot } from 'react-dom/client';
+        import { GoogleGenAI, Type } from '@google/genai';
+        import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell, CartesianGrid } from 'recharts';
         import { 
             LayoutDashboard, List, History, Settings as SettingsIcon, Shield, 
-            LogOut, QrCode, X, Plus, Edit2, Trash2, Save, Download, Upload, 
-            FileJson, Link, HelpCircle, CheckCircle, AlertTriangle, Package, 
-            BrainCircuit, Mic, Send, User 
+            LogOut, QrCode, X, Edit2, Trash2, Plus, Save, Download, Upload, 
+            FileJson, Link, HelpCircle, CheckCircle, Package, BrainCircuit, 
+            AlertTriangle, Mic, Send, User 
         } from 'lucide-react';
-        import { 
-            BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
-            Cell, CartesianGrid 
-        } from 'recharts';
-        import { GoogleGenAI, Type } from "@google/genai";
 
         // --- CONSTANTS ---
         const INITIAL_INVENTORY = [
@@ -89,7 +99,7 @@
             catch (e) { console.error("Data corruption reset"); return fallback; }
         };
 
-        const getSettings = () => safeJsonParse(localStorage.getItem(STORAGE_KEYS.SETTINGS), { googleSheetUrl: '', lastSyncTime: null });
+        const getSettings = () => safeJsonParse(localStorage.getItem(STORAGE_KEYS.SETTINGS), { googleSheetUrl: '', apiKey: '', lastSyncTime: null });
         const saveSettings = (settings) => localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
 
         const getInventory = () => {
@@ -111,41 +121,22 @@
         };
         const saveAllTransactions = (txs) => localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(txs));
 
-        const getBackupData = () => ({
-            inventory: getInventory(),
-            transactions: getTransactions(),
-            backupDate: new Date().toISOString()
-        });
-        const restoreBackupData = (data) => {
-            if (data.inventory) saveInventory(data.inventory);
-            if (data.transactions) saveAllTransactions(data.transactions);
+        // Gemini AI Service
+        const getAiClient = () => {
+            const settings = getSettings();
+            if (!settings.apiKey) throw new Error("API Key is missing. Please go to Settings to add it.");
+            return new GoogleGenAI({ apiKey: settings.apiKey });
         };
 
-        // --- GEMINI SERVICE ---
-        const apiKey = process.env.API_KEY;
-        const ai = new GoogleGenAI({ apiKey: apiKey });
-
         const parseCheckoutRequest = async (prompt, currentInventory) => {
-            if (!apiKey) throw new Error("API Key is missing.");
-
-            const inventoryListString = currentInventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
-            const systemInstruction = `
-                You are an inventory assistant for a PPE tracker.
-                Available Inventory:
-                ${inventoryListString}
-                
-                Instructions:
-                1. Identify the employee name. Default "Unknown".
-                2. Map items to exact names in the list.
-                3. Extract quantity. Default 1.
-            `;
-
             try {
+                const ai = getAiClient();
+                const inventoryList = currentInventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: prompt,
                     config: {
-                        systemInstruction: systemInstruction,
+                        systemInstruction: `You are an inventory assistant. Available Inventory:\n${inventoryList}\n\nExtract: 1. Employee Name (default 'Unknown') 2. Items (map to exact names) 3. Quantity (default 1).`,
                         responseMimeType: "application/json",
                         responseSchema: {
                             type: Type.OBJECT,
@@ -167,59 +158,48 @@
                 });
                 return JSON.parse(response.text);
             } catch (error) {
-                console.error("Gemini Error:", error);
                 throw error;
             }
         };
 
         const generateInventoryInsights = async (inventory) => {
-            if (!apiKey) return "AI Insights require an API Key.";
-            const simplifiedInventory = inventory.map(i => ({n: i.name, q: i.quantity, t: i.threshold}));
-            const prompt = `Analyze this PPE inventory: ${JSON.stringify(simplifiedInventory)}. 
-            Provide a concise, 2-sentence summary for a safety supervisor about stock health.`;
             try {
+                const ai = getAiClient();
+                const data = inventory.map(i => ({n: i.name, q: i.quantity, t: i.threshold}));
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
-                    contents: prompt,
+                    contents: `Analyze PPE stock: ${JSON.stringify(data)}. Give a 2 sentence summary for a supervisor.`
                 });
-                return response.text || "No insights available.";
+                return response.text;
             } catch (e) {
-                return "AI Insight unavailable.";
+                return "AI Insight unavailable (Check API Key in Settings).";
             }
         };
 
-        // --- SHEETS SERVICE ---
+        // Google Sheets Service
         const syncWithSheet = async (inventory, transactions) => {
             const settings = getSettings();
-            if (!settings.googleSheetUrl) return { success: false, message: "No Google Sheet URL." };
-
+            if (!settings.googleSheetUrl) return { success: false };
             try {
-                const response = await fetch(settings.googleSheetUrl, {
+                await fetch(settings.googleSheetUrl, {
                     method: 'POST',
+                    mode: 'no-cors',
                     headers: { "Content-Type": "text/plain;charset=utf-8" },
                     body: JSON.stringify({ action: 'SYNC', inventory, transactions })
                 });
-                const result = await response.json();
-                if(result.status === 'success') {
-                    saveSettings({ ...settings, lastSyncTime: new Date().toISOString() });
-                    return { success: true };
-                }
-                return { success: false };
-            } catch (e) {
-                return { success: false };
-            }
+                saveSettings({ ...settings, lastSyncTime: new Date().toISOString() });
+                return { success: true };
+            } catch (e) { return { success: false }; }
         };
 
         const fetchFromSheet = async () => {
             const settings = getSettings();
             if (!settings.googleSheetUrl) return { inventory: null, transactions: null };
             try {
-                const response = await fetch(`${settings.googleSheetUrl}?action=GET_DATA`);
-                const data = await response.json();
+                const res = await fetch(`${settings.googleSheetUrl}?action=GET_DATA`);
+                const data = await res.json();
                 return data.status === 'success' ? data : { inventory: null, transactions: null };
-            } catch (e) {
-                return { inventory: null, transactions: null };
-            }
+            } catch (e) { return { inventory: null, transactions: null }; }
         };
 
         // --- COMPONENTS ---
@@ -230,6 +210,7 @@
                 quantity: item.quantity,
                 threshold: item.threshold
             }));
+
             return (
                 <div className="h-64 w-full">
                     <ResponsiveContainer width="100%" height="100%">
@@ -253,169 +234,152 @@
             const [formData, setFormData] = useState({ name: '', category: 'General', quantity: 0, unit: 'pcs', threshold: 5 });
 
             useEffect(() => {
-                if (isOpen) {
-                    setFormData(initialData || { name: '', category: 'General', quantity: 0, unit: 'pcs', threshold: 5 });
-                }
+                if (isOpen) setFormData(initialData || { name: '', category: 'General', quantity: 0, unit: 'pcs', threshold: 5 });
             }, [isOpen, initialData]);
 
             if (!isOpen) return null;
 
             return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
-                        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
-                            <h3 className="font-bold text-lg text-slate-800">{initialData ? 'Edit Item' : 'Add New Item'}</h3>
-                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden">
+                        <div className="flex justify-between items-center p-4 border-b bg-slate-50">
+                            <h3 className="font-bold text-lg">{initialData ? 'Edit Item' : 'Add Item'}</h3>
+                            <button onClick={onClose}><X className="w-5 h-5 text-slate-400" /></button>
                         </div>
                         <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="p-6 space-y-4">
                             <div>
-                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item Name</label>
-                                <input type="text" required className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Name</label>
+                                <input type="text" required className="w-full p-2 border rounded" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
-                                    <select className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
-                                        <option value="Head">Head</option><option value="Eye">Eye</option><option value="Apparel">Apparel</option><option value="Hand">Hand</option><option value="Foot">Foot</option><option value="Hearing">Hearing</option><option value="General">General</option>
+                                    <select className="w-full p-2 border rounded" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                                        <option value="Head">Head</option><option value="Eye">Eye</option><option value="Apparel">Apparel</option>
+                                        <option value="Hand">Hand</option><option value="Foot">Foot</option><option value="Hearing">Hearing</option><option value="General">General</option>
                                     </select>
                                 </div>
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Unit</label>
-                                    <input type="text" className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
+                                    <input type="text" className="w-full p-2 border rounded" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
                                 </div>
                             </div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Quantity</label>
-                                    <input type="number" min="0" required className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} />
+                                    <input type="number" min="0" required className="w-full p-2 border rounded" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value)||0})} />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Low Stock Limit</label>
-                                    <input type="number" min="0" className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.threshold} onChange={e => setFormData({...formData, threshold: parseInt(e.target.value) || 0})} />
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Threshold</label>
+                                    <input type="number" min="0" className="w-full p-2 border rounded" value={formData.threshold} onChange={e => setFormData({...formData, threshold: parseInt(e.target.value)||0})} />
                                 </div>
                             </div>
-                            <div className="pt-4 flex gap-3">
-                                <button type="button" onClick={onClose} className="flex-1 py-2 px-4 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 font-medium">Cancel</button>
-                                <button type="submit" className="flex-1 py-2 px-4 bg-safety-600 text-white rounded-lg hover:bg-safety-700 font-bold flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Save Item</button>
-                            </div>
+                            <button type="submit" className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Save Item</button>
                         </form>
                     </div>
                 </div>
             );
         };
 
-        const InventoryTable = ({ inventory, onEdit, onDelete }) => {
-            const isEditable = !!onEdit && !!onDelete;
-            return (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-600">
-                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500 tracking-wider">
-                                <tr>
-                                    <th className="px-6 py-4">Item Name</th>
-                                    <th className="px-6 py-4">Category</th>
-                                    <th className="px-6 py-4">Quantity</th>
-                                    <th className="px-6 py-4">Status</th>
-                                    {isEditable && <th className="px-6 py-4 text-right">Actions</th>}
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {inventory.map(item => (
-                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-6 py-4 font-medium text-slate-800">{item.name}</td>
-                                        <td className="px-6 py-4 text-slate-500">{item.category}</td>
-                                        <td className="px-6 py-4 font-mono">{item.quantity} <span className="text-slate-400 text-xs">{item.unit}</span></td>
-                                        <td className="px-6 py-4">
-                                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${item.quantity <= item.threshold ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
-                                                {item.quantity <= item.threshold ? 'Low Stock' : 'In Stock'}
-                                            </span>
+        const InventoryTable = ({ inventory, onEdit, onDelete }) => (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm text-slate-600">
+                        <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                            <tr>
+                                <th className="px-6 py-4">Item</th>
+                                <th className="px-6 py-4">Category</th>
+                                <th className="px-6 py-4">Quantity</th>
+                                <th className="px-6 py-4">Status</th>
+                                {onEdit && <th className="px-6 py-4 text-right">Actions</th>}
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {inventory.map(item => (
+                                <tr key={item.id} className="hover:bg-slate-50">
+                                    <td className="px-6 py-4 font-medium text-slate-800">{item.name}</td>
+                                    <td className="px-6 py-4">{item.category}</td>
+                                    <td className="px-6 py-4">{item.quantity} {item.unit}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${item.quantity <= item.threshold ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                            {item.quantity <= item.threshold ? 'Low Stock' : 'Good'}
+                                        </span>
+                                    </td>
+                                    {onEdit && (
+                                        <td className="px-6 py-4 text-right flex justify-end gap-2">
+                                            <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Edit2 className="w-4 h-4" /></button>
+                                            <button onClick={() => window.confirm('Delete?') && onDelete(item.id)} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
                                         </td>
-                                        {isEditable && (
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex justify-end gap-2">
-                                                    <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Edit2 className="w-4 h-4" /></button>
-                                                    <button onClick={() => { if(window.confirm('Delete this item?')) onDelete(item.id); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
-                                            </td>
-                                        )}
-                                    </tr>
-                                ))}
-                                {inventory.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">No inventory items found.</td></tr>}
-                            </tbody>
-                        </table>
-                    </div>
+                                    )}
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </div>
-            );
-        };
+            </div>
+        );
 
         const CheckoutForm = ({ inventory, onSubmit }) => {
             const [activeTab, setActiveTab] = useState('manual');
             const [isLoading, setIsLoading] = useState(false);
-            const [employeeName, setEmployeeName] = useState('');
-            const [selectedItemId, setSelectedItemId] = useState('');
-            const [quantity, setQuantity] = useState(1);
+            const [manual, setManual] = useState({ name: '', itemId: '', qty: 1 });
             const [aiPrompt, setAiPrompt] = useState('');
             const [aiError, setAiError] = useState('');
 
-            const handleManualSubmit = (e) => {
+            const handleManual = (e) => {
                 e.preventDefault();
-                if (!employeeName || !selectedItemId || quantity <= 0) return;
-                onSubmit(employeeName, [{ itemId: selectedItemId, quantity }], 'MANUAL');
-                setEmployeeName(''); setSelectedItemId(''); setQuantity(1);
+                if (!manual.name || !manual.itemId) return;
+                onSubmit(manual.name, [{ itemId: manual.itemId, quantity: manual.qty }], 'MANUAL');
+                setManual({ name: '', itemId: '', qty: 1 });
             };
 
-            const handleAiSubmit = async (e) => {
+            const handleAi = async (e) => {
                 e.preventDefault();
-                if(!aiPrompt.trim()) return;
                 setIsLoading(true); setAiError('');
                 try {
-                    const result = await parseCheckoutRequest(aiPrompt, inventory);
-                    const itemsToCheckout = [];
-                    const notFound = [];
-                    result.items.forEach(pItem => {
-                        const invItem = inventory.find(i => i.name === pItem.itemNameTarget);
-                        if (invItem) itemsToCheckout.push({ itemId: invItem.id, quantity: pItem.quantity });
-                        else notFound.push(pItem.itemNameTarget);
+                    const res = await parseCheckoutRequest(aiPrompt, inventory);
+                    if (!res?.items?.length) throw new Error("Could not match items.");
+                    
+                    const items = [];
+                    res.items.forEach(i => {
+                        const invItem = inventory.find(x => x.name === i.itemNameTarget);
+                        if (invItem) items.push({ itemId: invItem.id, quantity: i.quantity });
                     });
-
-                    if (notFound.length > 0 && itemsToCheckout.length === 0) throw new Error(`Could not match: ${notFound.join(', ')}`);
-                    onSubmit(result.employeeName || "Unknown", itemsToCheckout, 'AI');
+                    
+                    if (!items.length) throw new Error("No matching items found in inventory.");
+                    onSubmit(res.employeeName || "Unknown", items, 'AI');
                     setAiPrompt('');
-                } catch (err) { setAiError(err.message || "Error processing request."); } 
+                } catch (e) { setAiError(e.message); }
                 finally { setIsLoading(false); }
             };
 
             return (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                     <div className="flex border-b border-slate-100">
-                        <button onClick={() => setActiveTab('manual')} className={`flex-1 py-4 text-sm font-semibold ${activeTab === 'manual' ? 'text-safety-600 border-b-2 border-safety-500 bg-safety-50' : 'text-slate-500'}`}>Manual Entry</button>
-                        <button onClick={() => setActiveTab('ai')} className={`flex-1 py-4 text-sm font-semibold ${activeTab === 'ai' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50' : 'text-slate-500'}`}>AI Assistant</button>
+                        <button onClick={() => setActiveTab('manual')} className={`flex-1 py-3 text-sm font-bold ${activeTab === 'manual' ? 'text-safety-600 bg-safety-50 border-b-2 border-safety-600' : 'text-slate-500'}`}>Manual</button>
+                        <button onClick={() => setActiveTab('ai')} className={`flex-1 py-3 text-sm font-bold ${activeTab === 'ai' ? 'text-indigo-600 bg-indigo-50 border-b-2 border-indigo-600' : 'text-slate-500'}`}>AI Assistant</button>
                     </div>
-                    <div className="p-6 flex-1">
+                    <div className="p-5">
                         {activeTab === 'manual' ? (
-                            <form onSubmit={handleManualSubmit} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Employee</label>
-                                    <div className="relative"><User className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" /><input type="text" placeholder="e.g. John Doe" className="w-full pl-9 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-safety-500" value={employeeName} onChange={e => setEmployeeName(e.target.value)} required /></div>
+                            <form onSubmit={handleManual} className="space-y-3">
+                                <input type="text" placeholder="Employee Name" className="w-full p-2 border rounded" value={manual.name} onChange={e => setManual({...manual, name: e.target.value})} required />
+                                <div className="flex gap-2">
+                                    <select className="flex-1 p-2 border rounded" value={manual.itemId} onChange={e => setManual({...manual, itemId: e.target.value})} required>
+                                        <option value="">Select Item...</option>
+                                        {inventory.map(i => <option key={i.id} value={i.id} disabled={i.quantity===0}>{i.name} ({i.quantity})</option>)}
+                                    </select>
+                                    <input type="number" min="1" className="w-20 p-2 border rounded" value={manual.qty} onChange={e => setManual({...manual, qty: parseInt(e.target.value)||1})} required />
                                 </div>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="col-span-2">
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item</label>
-                                        <div className="relative"><Package className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" /><select className="w-full pl-9 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-safety-500" value={selectedItemId} onChange={e => setSelectedItemId(e.target.value)} required><option value="">Select...</option>{inventory.map(i => <option key={i.id} value={i.id} disabled={i.quantity === 0}>{i.name} ({i.quantity})</option>)}</select></div>
-                                    </div>
-                                    <div>
-                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Qty</label>
-                                        <input type="number" min="1" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-safety-500" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} required />
-                                    </div>
-                                </div>
-                                <button type="submit" className="w-full bg-safety-600 text-white py-3 rounded-lg font-bold hover:bg-safety-700 transition-colors shadow-sm">Confirm Checkout</button>
+                                <button type="submit" className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Checkout</button>
                             </form>
                         ) : (
-                            <form onSubmit={handleAiSubmit} className="space-y-4 h-full flex flex-col">
-                                <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg"><p className="text-xs text-indigo-700 font-medium flex items-center gap-2"><Mic className="w-4 h-4" /> Try: "Mike needs 2 white helmets"</p></div>
-                                <textarea className="w-full flex-1 p-3 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none text-slate-700" placeholder="Type request..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} required></textarea>
-                                {aiError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded">{aiError}</p>}
-                                <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">{isLoading ? 'Processing...' : <><Send className="w-4 h-4" /> Process</>}</button>
+                            <form onSubmit={handleAi} className="space-y-3">
+                                <div className="bg-indigo-50 p-2 rounded text-xs text-indigo-700 flex gap-1"><Mic className="w-4 h-4"/> Try: "Mike took 2 helmets"</div>
+                                <textarea className="w-full p-2 border rounded h-20" placeholder="Type here..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} required></textarea>
+                                {aiError && <p className="text-xs text-red-600">{aiError}</p>}
+                                <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">
+                                    {isLoading ? 'Processing...' : 'Process Request'}
+                                </button>
                             </form>
                         )}
                     </div>
@@ -424,65 +388,53 @@
         };
 
         const SettingsPage = ({ onSync }) => {
-            const [settings, setLocalSettings] = useState({ googleSheetUrl: '', lastSyncTime: null });
-            const [status, setStatus] = useState('');
-            const [showGuide, setShowGuide] = useState(false);
+            const [settings, setLocal] = useState({ googleSheetUrl: '', apiKey: '' });
+            const [msg, setMsg] = useState('');
 
-            useEffect(() => { setLocalSettings(getSettings()); }, []);
-
-            const handleSave = () => { saveSettings(settings); setStatus('Saved!'); setTimeout(() => setStatus(''), 2000); };
+            useEffect(() => setLocal(getSettings()), []);
+            const save = () => { saveSettings(settings); setMsg('Saved!'); setTimeout(() => setMsg(''), 2000); };
+            
             const handleRestore = (e) => {
-                const file = e.target.files?.[0];
+                const file = e.target.files[0];
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    try { restoreBackupData(JSON.parse(e.target.result)); onSync(); setStatus('Restored!'); } 
-                    catch(err) { setStatus('Error'); }
+                    try {
+                        const d = JSON.parse(e.target.result);
+                        if(d.inventory) saveInventory(d.inventory);
+                        if(d.transactions) saveAllTransactions(d.transactions);
+                        onSync(); setMsg('Restored!');
+                    } catch(e) { setMsg('Error'); }
                 };
                 reader.readAsText(file);
             };
-            const handleDownload = () => {
-                const url = URL.createObjectURL(new Blob([JSON.stringify(getBackupData(), null, 2)], { type: 'application/json' }));
-                const a = document.createElement('a'); a.href = url; a.download = 'backup.json'; a.click();
-            };
 
             return (
-                <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
-                    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                        <div className="flex justify-between items-start mb-6">
-                            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Link className="w-5 h-5 text-safety-600" /> Google Sheets Integration</h2>
-                            <button onClick={() => setShowGuide(!showGuide)} className="text-indigo-600 text-sm font-medium flex items-center gap-1 hover:underline"><HelpCircle className="w-4 h-4" /> {showGuide ? 'Hide Guide' : 'Connect Guide'}</button>
-                        </div>
-                        {showGuide && (
-                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-5 mb-6 text-sm text-slate-700 space-y-3">
-                                <ol className="list-decimal pl-5 space-y-2">
-                                    <li>Create new <a href="https://sheets.google.com" target="_blank" className="underline text-indigo-600">Google Sheet</a>. Extensions &gt; Apps Script.</li>
-                                    <li>Paste code below. Click Deploy &gt; New Deployment. Select <strong>Web App</strong>.</li>
-                                    <li>Set "Who has access" to <strong>Anyone</strong>. Deploy. Copy URL.</li>
-                                </ol>
-                            </div>
-                        )}
-                        <div className="space-y-4">
-                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 relative">
-                                <p className="text-sm font-medium text-slate-700 mb-2">Apps Script Code</p>
-                                <textarea readOnly className="w-full h-24 p-3 bg-slate-900 text-slate-300 text-xs font-mono rounded-lg focus:outline-none" value={GOOGLE_SCRIPT}></textarea>
-                                <button onClick={() => { navigator.clipboard.writeText(GOOGLE_SCRIPT); setStatus("Copied!"); }} className="absolute top-10 right-6 bg-white/10 text-white text-xs px-2 py-1 rounded">Copy</button>
-                            </div>
-                            <div>
-                                <label className="block text-sm font-medium text-slate-700 mb-1">Web App URL</label>
-                                <input type="text" className="w-full p-2.5 bg-white border border-slate-300 rounded-lg" placeholder="https://script.google.com/..." value={settings.googleSheetUrl} onChange={e => setLocalSettings({...settings, googleSheetUrl: e.target.value})} />
-                            </div>
-                            <div className="flex items-center gap-4 pt-2">
-                                <button onClick={handleSave} className="flex items-center gap-2 bg-safety-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-safety-700"><Save className="w-4 h-4" /> Save</button>
-                                {status && <span className="text-sm font-medium text-green-600">{status}</span>}
-                            </div>
-                        </div>
+                <div className="space-y-6 animate-fade-in pb-12">
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><BrainCircuit className="w-5 h-5 text-indigo-600"/> AI Configuration</h3>
+                        <p className="text-sm text-slate-500 mb-2">Required for AI Checkout & Insights. Get key from aistudio.google.com</p>
+                        <input type="password" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste Gemini API Key" value={settings.apiKey} onChange={e => setLocal({...settings, apiKey: e.target.value})} />
                     </div>
-                    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
-                        <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><FileJson className="w-5 h-5 text-indigo-600" /> Data Management</h2>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <button onClick={handleDownload} className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50"><Download className="w-8 h-8 text-slate-400 mb-3" /><span className="font-semibold text-slate-700">Download Backup</span></button>
-                            <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-xl hover:border-safety-300 hover:bg-safety-50 cursor-pointer"><Upload className="w-8 h-8 text-slate-400 mb-3" /><span className="font-semibold text-slate-700">Restore Backup</span><input type="file" className="hidden" accept=".json" onChange={handleRestore} /></label>
+
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-lg mb-4 flex items-center gap-2"><Link className="w-5 h-5 text-green-600"/> Google Sheets Sync</h3>
+                        <div className="bg-slate-50 p-3 rounded mb-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap border">{GOOGLE_SCRIPT}</div>
+                        <input type="text" className="w-full p-2 border rounded font-mono text-sm mb-4" placeholder="Web App URL" value={settings.googleSheetUrl} onChange={e => setLocal({...settings, googleSheetUrl: e.target.value})} />
+                        <button onClick={save} className="bg-safety-600 text-white px-6 py-2 rounded font-bold hover:bg-safety-700 flex items-center gap-2"><Save className="w-4 h-4"/> Save Settings</button>
+                        {msg && <span className="ml-4 text-green-600 font-bold">{msg}</span>}
+                    </div>
+
+                    <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                        <h3 className="font-bold text-lg mb-4">Backup & Restore</h3>
+                        <div className="flex gap-4">
+                            <button onClick={() => {
+                                const blob = new Blob([JSON.stringify({inventory: getInventory(), transactions: getTransactions()})], {type: 'application/json'});
+                                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'backup.json'; a.click();
+                            }} className="border px-4 py-2 rounded hover:bg-slate-50 flex items-center gap-2"><Download className="w-4 h-4"/> Download</button>
+                            <label className="border px-4 py-2 rounded hover:bg-slate-50 cursor-pointer flex items-center gap-2">
+                                <Upload className="w-4 h-4"/> Restore <input type="file" className="hidden" accept=".json" onChange={handleRestore} />
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -490,184 +442,182 @@
         };
 
         const Dashboard = ({ inventory, transactions }) => {
-            const [insight, setInsight] = useState('Generating AI insights...');
+            const [insight, setInsight] = useState('Loading AI insight...');
             useEffect(() => { generateInventoryInsights(inventory).then(setInsight); }, [inventory]);
-            const lowStockCount = inventory.filter(i => i.quantity <= i.threshold).length;
-            const totalItems = inventory.reduce((acc, curr) => acc + curr.quantity, 0);
+            
+            const lowStock = inventory.filter(i => i.quantity <= i.threshold).length;
+            const total = inventory.reduce((a, b) => a + b.quantity, 0);
 
             return (
                 <div className="space-y-6">
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
-                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><Package className="w-6 h-6" /></div>
-                            <div><p className="text-slate-500 text-xs font-bold uppercase tracking-wide">Total Items</p><p className="text-2xl font-bold text-slate-800">{totalItems}</p></div>
+                        <div className="bg-white p-5 rounded-xl border shadow-sm flex items-center gap-4">
+                            <div className="bg-blue-100 p-3 rounded-full text-blue-600"><Package className="w-6 h-6"/></div>
+                            <div><p className="text-xs font-bold text-slate-500 uppercase">Total Items</p><p className="text-2xl font-bold">{total}</p></div>
                         </div>
-                        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
-                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${lowStockCount > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{lowStockCount > 0 ? <AlertTriangle className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}</div>
-                            <div><p className="text-slate-500 text-xs font-bold uppercase tracking-wide">Low Stock Alerts</p><p className={`text-2xl font-bold ${lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{lowStockCount}</p></div>
+                        <div className="bg-white p-5 rounded-xl border shadow-sm flex items-center gap-4">
+                            <div className={`p-3 rounded-full ${lowStock > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
+                                {lowStock > 0 ? <AlertTriangle className="w-6 h-6"/> : <CheckCircle className="w-6 h-6"/>}
+                            </div>
+                            <div><p className="text-xs font-bold text-slate-500 uppercase">Low Stock</p><p className="text-2xl font-bold">{lowStock}</p></div>
                         </div>
-                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-5 rounded-xl shadow-md text-white flex flex-col justify-center relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-4 opacity-10"><BrainCircuit className="w-16 h-16" /></div>
-                            <h3 className="text-indigo-200 text-xs font-bold uppercase mb-2 flex items-center gap-2"><BrainCircuit className="w-4 h-4" /> AI Insight</h3>
-                            <p className="text-sm font-light leading-relaxed opacity-95">{insight}</p>
+                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-5 rounded-xl shadow-md text-white">
+                            <h3 className="text-xs font-bold uppercase mb-2 flex items-center gap-2"><BrainCircuit className="w-4 h-4"/> AI Insight</h3>
+                            <p className="text-sm opacity-90 leading-relaxed">{insight}</p>
                         </div>
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                        <div className="flex justify-between items-center mb-6"><h3 className="text-lg font-bold text-slate-800">Stock Levels Overview</h3></div>
+                    <div className="bg-white p-6 rounded-xl border shadow-sm">
+                        <h3 className="font-bold mb-4">Stock Levels</h3>
                         <StockChart data={inventory} />
                     </div>
                 </div>
             );
         };
 
-        const HistoryLog = ({ transactions }) => (
-            <div className="space-y-4">
-                <h2 className="text-xl font-bold text-slate-800">Transaction History</h2>
-                {transactions.length === 0 && <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300"><p className="text-slate-500">No transactions recorded yet.</p></div>}
-                <div className="grid gap-3">
-                    {transactions.map(tx => (
-                        <div key={tx.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
-                            <div>
-                                <div className="flex items-center gap-3 mb-1"><span className="font-bold text-slate-800 text-lg">{tx.employeeName}</span><span className={`text-[10px] uppercase px-2 py-0.5 rounded font-bold ${tx.method === 'AI' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>{tx.method}</span></div>
-                                <p className="text-xs text-slate-400">{new Date(tx.timestamp).toLocaleString()}</p>
+        const Layout = ({ children, view, setView }) => {
+            const [showQr, setShowQr] = useState(false);
+            return (
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
+                    <aside className="bg-slate-900 text-white w-full md:w-64 flex flex-col flex-shrink-0 z-20">
+                        <div className="p-6">
+                            <div className="flex items-center gap-3 text-safety-500 mb-1">
+                                <Shield className="w-8 h-8" />
+                                <h1 className="font-bold text-white leading-tight">Gold Coin Bekasi</h1>
                             </div>
-                            <div className="text-right w-full sm:w-auto bg-slate-50 p-3 rounded-lg sm:bg-transparent sm:p-0">
-                                {tx.items.map((i, idx) => (<div key={idx} className="text-sm text-slate-700"><span className="text-slate-500">{i.itemName}</span> <span className="font-bold text-safety-600">-{i.quantity}</span></div>))}
+                            <p className="text-xs text-slate-500 pl-11">PPE Database</p>
+                        </div>
+                        <nav className="flex-1 px-4 space-y-2">
+                            {[
+                                {id: 'DASHBOARD', icon: LayoutDashboard, label: 'Dashboard'},
+                                {id: 'INVENTORY', icon: List, label: 'Inventory'},
+                                {id: 'HISTORY', icon: History, label: 'History'},
+                                {id: 'SETTINGS', icon: SettingsIcon, label: 'Settings'}
+                            ].map(i => (
+                                <button key={i.id} onClick={() => setView(i.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm font-medium ${view === i.id ? 'bg-safety-600 text-white' : 'text-slate-400 hover:bg-slate-800'}`}>
+                                    <i.icon className="w-5 h-5"/> {i.label}
+                                </button>
+                            ))}
+                        </nav>
+                        <div className="p-4 border-t border-slate-800 space-y-2">
+                            <button onClick={() => setShowQr(true)} className="flex items-center gap-2 text-xs text-slate-400 hover:text-white w-full px-4 py-2 hover:bg-slate-800 rounded"><QrCode className="w-3 h-3"/> Mobile Access</button>
+                            <button onClick={() => confirm("Reset App?") && (localStorage.clear() || location.reload())} className="flex items-center gap-2 text-xs text-slate-600 hover:text-red-400 w-full px-4 py-2"><LogOut className="w-3 h-3"/> Reset App</button>
+                        </div>
+                    </aside>
+                    <main className="flex-1 h-[calc(100vh-64px)] md:h-screen overflow-hidden flex flex-col">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+                            <div className="max-w-6xl mx-auto pb-10">{children}</div>
+                        </div>
+                    </main>
+                    {showQr && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowQr(false)}>
+                            <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm text-center relative" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setShowQr(false)} className="absolute top-4 right-4"><X className="w-5 h-5 text-slate-400"/></button>
+                                <h3 className="font-bold text-lg mb-2">Mobile Access</h3>
+                                <div className="flex justify-center mb-4"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} className="border p-2 rounded"/></div>
+                                <p className="text-xs text-slate-400">Scan to open on phone</p>
                             </div>
                         </div>
-                    ))}
+                    )}
                 </div>
-            </div>
-        );
+            );
+        };
 
         const App = () => {
             const [view, setView] = useState('DASHBOARD');
             const [inventory, setInventory] = useState([]);
             const [transactions, setTransactions] = useState([]);
-            const [notification, setNotification] = useState(null);
-            const [showQr, setShowQr] = useState(false);
+            const [notif, setNotif] = useState(null);
             const [isModalOpen, setIsModalOpen] = useState(false);
-            const [editingItem, setEditingItem] = useState(null);
+            const [editItem, setEditItem] = useState(null);
 
-            const loadData = async () => {
+            const load = async () => {
                 const cloud = await fetchFromSheet();
-                if (cloud.inventory && Array.isArray(cloud.inventory)) {
-                    setInventory(cloud.inventory);
-                    setTransactions(cloud.transactions || []);
-                    saveInventory(cloud.inventory);
-                    saveAllTransactions(cloud.transactions || []);
+                if(cloud.inventory) {
+                    setInventory(cloud.inventory); setTransactions(cloud.transactions||[]);
+                    saveInventory(cloud.inventory); saveAllTransactions(cloud.transactions||[]);
                 } else {
-                    setInventory(getInventory());
-                    setTransactions(getTransactions());
+                    setInventory(getInventory()); setTransactions(getTransactions());
                 }
             };
-            useEffect(() => { loadData(); }, []);
+            useEffect(() => { load(); }, []);
 
-            const showNotification = (msg) => { setNotification(msg); setTimeout(() => setNotification(null), 3000); };
+            const notify = (m) => { setNotif(m); setTimeout(() => setNotif(null), 3000); };
 
-            const handleTransaction = async (employeeName, items, method) => {
-                const newTx = {
-                    id: Date.now().toString(),
-                    employeeName,
-                    items: items.map(i => { const d = inventory.find(x => x.id === i.itemId); return { itemId: i.itemId, itemName: d ? d.name : 'Unknown', quantity: i.quantity }; }),
-                    timestamp: new Date().toISOString(),
-                    method
+            const handleCheckout = async (name, items, method) => {
+                const tx = {
+                    id: Date.now().toString(), employeeName: name, timestamp: new Date().toISOString(), method,
+                    items: items.map(i => ({itemId: i.itemId, quantity: i.quantity, itemName: inventory.find(x=>x.id===i.itemId)?.name || 'Unknown'}))
                 };
-                const updatedInventory = inventory.map(item => {
-                    const txItem = items.find(i => i.itemId === item.id);
-                    return txItem ? { ...item, quantity: Math.max(0, item.quantity - txItem.quantity), lastUpdated: new Date().toISOString() } : item;
+                const updatedInv = inventory.map(invItem => {
+                    const match = items.find(i => i.itemId === invItem.id);
+                    return match ? {...invItem, quantity: Math.max(0, invItem.quantity - match.quantity), lastUpdated: new Date().toISOString()} : invItem;
                 });
-                setInventory(updatedInventory);
-                setTransactions([newTx, ...transactions]);
-                saveInventory(updatedInventory);
-                saveTransaction(newTx);
-                showNotification("Updated!");
-                await syncWithSheet(updatedInventory, [newTx, ...transactions]);
+                setInventory(updatedInv); setTransactions([tx, ...transactions]);
+                saveInventory(updatedInv); saveTransaction(tx);
+                notify('Checkout Successful');
+                await syncWithSheet(updatedInv, [tx, ...transactions]);
             };
 
             const handleSaveItem = async (item) => {
-                let updatedInventory;
-                if (editingItem) {
-                    updatedInventory = inventory.map(i => i.id === editingItem.id ? { ...item, id: editingItem.id, lastUpdated: new Date().toISOString() } : i);
-                    showNotification("Item updated");
-                } else {
-                    updatedInventory = [...inventory, { ...item, id: Date.now().toString(), lastUpdated: new Date().toISOString() }];
-                    showNotification("Item added");
-                }
-                setInventory(updatedInventory);
-                saveInventory(updatedInventory);
-                setIsModalOpen(false);
-                await syncWithSheet(updatedInventory, transactions);
+                let updated;
+                if(editItem) updated = inventory.map(i => i.id === editItem.id ? {...item, id: editItem.id, lastUpdated: new Date().toISOString()} : i);
+                else updated = [...inventory, {...item, id: Date.now().toString(), lastUpdated: new Date().toISOString()}];
+                setInventory(updated); saveInventory(updated); setIsModalOpen(false); notify('Inventory Updated');
+                await syncWithSheet(updated, transactions);
             };
 
-            const handleDeleteItem = async (id) => {
-                const updatedInventory = inventory.filter(i => i.id !== id);
-                setInventory(updatedInventory);
-                saveInventory(updatedInventory);
-                showNotification("Item deleted");
-                await syncWithSheet(updatedInventory, transactions);
+            const handleDelete = async (id) => {
+                const updated = inventory.filter(i => i.id !== id);
+                setInventory(updated); saveInventory(updated); notify('Item Deleted');
+                await syncWithSheet(updated, transactions);
             };
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
-                    <aside className="bg-slate-900 text-white w-full md:w-64 flex flex-col flex-shrink-0 shadow-xl z-20">
-                        <div className="p-6">
-                            <div className="flex items-center gap-3 text-safety-500 mb-1"><Shield className="w-8 h-8" /><h1 className="text-lg font-bold text-white leading-tight">Gold Coin Bekasi</h1></div>
-                            <p className="text-xs text-slate-500 pl-11">PPE Database</p>
-                        </div>
-                        <nav className="flex-1 px-4 space-y-2 py-4">
-                            {[
-                                { id: 'DASHBOARD', label: 'Dashboard', icon: LayoutDashboard },
-                                { id: 'INVENTORY', label: 'Inventory', icon: List },
-                                { id: 'HISTORY', label: 'History Log', icon: History },
-                                { id: 'SETTINGS', label: 'Settings', icon: SettingsIcon },
-                            ].map(item => (
-                                <button key={item.id} onClick={() => setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${view === item.id ? 'bg-safety-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
-                                    <item.icon className="w-5 h-5" /> {item.label}
-                                </button>
-                            ))}
-                        </nav>
-                        <div className="p-4 border-t border-slate-800 space-y-2">
-                            <button onClick={() => setShowQr(true)} className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors w-full px-4 py-2 hover:bg-slate-800 rounded-lg"><QrCode className="w-3 h-3" /> Mobile Access</button>
-                            <button onClick={() => { if(window.confirm("Reset all app data?")) { localStorage.clear(); window.location.reload(); } }} className="flex items-center gap-2 text-xs text-slate-600 hover:text-red-400 transition-colors w-full px-4 py-2"><LogOut className="w-3 h-3" /> Reset App</button>
-                        </div>
-                    </aside>
-
-                    <main className="flex-1 h-[calc(100vh-64px)] md:h-screen overflow-hidden flex flex-col">
-                        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
-                            {notification && <div className="fixed top-6 right-6 z-50 animate-fade-in"><div className="bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2"><CheckCircle className="w-5 h-5" /><span className="font-medium">{notification}</span></div></div>}
-                            
-                            <InventoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveItem} initialData={editingItem} />
-
-                            <div className="max-w-6xl mx-auto pb-10">
-                                {view === 'DASHBOARD' && (
-                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                        <div className="lg:col-span-1"><div className="sticky top-0"><h2 className="font-bold text-slate-800 text-lg mb-4">Quick Checkout</h2><CheckoutForm inventory={inventory} onSubmit={handleTransaction} /></div></div>
-                                        <div className="lg:col-span-2 space-y-8"><Dashboard inventory={inventory} transactions={transactions} /><div><div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-800 text-lg">Recent Inventory</h3><button onClick={() => setView('INVENTORY')} className="text-sm text-safety-600 font-medium">View All</button></div><InventoryTable inventory={inventory.slice(0, 5)} /></div></div>
-                                    </div>
-                                )}
-                                {view === 'INVENTORY' && (
-                                    <div className="space-y-6">
-                                        <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-slate-800">Inventory Management</h2><button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-safety-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-safety-700 flex items-center gap-2"><Plus className="w-5 h-5" /> Add New Item</button></div>
-                                        <InventoryTable inventory={inventory} onEdit={(item) => { setEditingItem(item); setIsModalOpen(true); }} onDelete={handleDeleteItem} />
-                                    </div>
-                                )}
-                                {view === 'HISTORY' && <div className="max-w-4xl mx-auto"><HistoryLog transactions={transactions} /></div>}
-                                {view === 'SETTINGS' && <SettingsPage onSync={loadData} />}
+                <Layout view={view} setView={setView}>
+                    {notif && <div className="fixed top-6 right-6 z-50 bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2 animate-bounce"><CheckCircle className="w-5 h-5"/> {notif}</div>}
+                    <InventoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveItem} initialData={editItem} />
+                    
+                    {view === 'DASHBOARD' && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                            <div className="lg:col-span-1">
+                                <h2 className="font-bold text-lg mb-4">Quick Checkout</h2>
+                                <CheckoutForm inventory={inventory} onSubmit={handleCheckout} />
                             </div>
-                        </div>
-                    </main>
-
-                    {showQr && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowQr(false)}>
-                            <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center relative" onClick={e => e.stopPropagation()}>
-                                <button onClick={() => setShowQr(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
-                                <h3 className="font-bold text-lg text-slate-800 mb-2">Scan for Mobile Access</h3>
-                                <div className="flex justify-center mb-6"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} alt="QR Code" className="border p-2 rounded-lg" /></div>
+                            <div className="lg:col-span-2 space-y-8">
+                                <Dashboard inventory={inventory} transactions={transactions} />
+                                <div>
+                                    <div className="flex justify-between items-center mb-4"><h3 className="font-bold text-lg">Inventory Status</h3><button onClick={() => setView('INVENTORY')} className="text-sm text-safety-600 font-bold">View All</button></div>
+                                    <InventoryTable inventory={inventory.slice(0, 5)} />
+                                </div>
                             </div>
                         </div>
                     )}
-                </div>
+                    {view === 'INVENTORY' && (
+                        <div className="space-y-6">
+                            <div className="flex justify-between items-center">
+                                <h2 className="text-2xl font-bold">Inventory</h2>
+                                <button onClick={() => {setEditItem(null); setIsModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold hover:bg-safety-700 flex items-center gap-2"><Plus className="w-5 h-5"/> Add Item</button>
+                            </div>
+                            <InventoryTable inventory={inventory} onEdit={(i)=>{setEditItem(i); setIsModalOpen(true);}} onDelete={handleDelete} />
+                        </div>
+                    )}
+                    {view === 'HISTORY' && (
+                        <div className="space-y-4">
+                            <h2 className="text-xl font-bold">Transaction History</h2>
+                            {transactions.map(tx => (
+                                <div key={tx.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
+                                    <div>
+                                        <div className="flex items-center gap-2"><span className="font-bold">{tx.employeeName}</span><span className="text-[10px] bg-slate-100 px-2 rounded uppercase">{tx.method}</span></div>
+                                        <p className="text-xs text-slate-400">{new Date(tx.timestamp).toLocaleString()}</p>
+                                    </div>
+                                    <div className="text-right text-sm">{tx.items.map((i,x) => <div key={x}>{i.itemName} <span className="font-bold text-red-500">-{i.quantity}</span></div>)}</div>
+                                </div>
+                            ))}
+                            {transactions.length === 0 && <p className="text-slate-500 text-center py-8">No history yet.</p>}
+                        </div>
+                    )}
+                    {view === 'SETTINGS' && <SettingsPage onSync={load} />}
+                </Layout>
             );
         };
 
