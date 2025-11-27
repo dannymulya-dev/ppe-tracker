@@ -31,7 +31,6 @@
         body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
         .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Custom Scrollbar */
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
@@ -69,7 +68,7 @@
     <script type="text/babel">
         const { useState, useEffect, useRef } = React;
 
-        // --- ICONS (Inline SVGs to prevent loading errors) ---
+        // --- ICONS ---
         const Icons = {
             Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3"/><rect width="7" height="5" x="14" y="3"/><rect width="7" height="9" x="14" y="12"/><rect width="7" height="5" x="3" y="16"/></svg>,
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>,
@@ -80,7 +79,9 @@
             Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
             Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
             Qr: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>,
-            Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M16 16l-2.74 2.74"/><path d="M21 21v-5h-5"/></svg>
+            Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M16 16l-2.74 2.74"/><path d="M21 21v-5h-5"/></svg>,
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>,
+            CloudUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 21"/><polyline points="9 16 12 13 15 16"/></svg>
         };
 
         // --- CONSTANTS ---
@@ -90,7 +91,6 @@
         const safeParse = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
         const saveData = (key, data) => localStorage.setItem(key, JSON.stringify(data));
 
-        // Use text/plain to avoid CORS Preflight issues in simple Web Apps
         const syncSheets = async (url, inv, tx) => {
             if(!url) return;
             try { 
@@ -127,7 +127,39 @@
             return data;
         };
 
-        // --- SUB-COMPONENTS (Defined OUTSIDE App to fix Focus Loss) ---
+        const exportToCSV = (data, filename) => {
+            if (!data || !data.length) return alert("No data to export");
+            
+            // Flatten if necessary (for transactions)
+            let formattedData = data;
+            if (data[0].items && Array.isArray(data[0].items)) {
+                // Flatten transactions
+                formattedData = data.map(t => ({
+                    ID: t.id,
+                    Employee: t.employeeName,
+                    Time: t.timestamp,
+                    Method: t.method,
+                    Items: t.items.map(i => `${i.quantity}x ${i.itemName}`).join('; ')
+                }));
+            }
+
+            const headers = Object.keys(formattedData[0]);
+            const csvContent = [
+                headers.join(','),
+                ...formattedData.map(row => headers.map(fieldName => {
+                    const val = row[fieldName] === null ? '' : row[fieldName];
+                    return JSON.stringify(val); // Handles commas in text
+                }).join(','))
+            ].join('\n');
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = filename;
+            link.click();
+        };
+
+        // --- COMPONENTS ---
 
         const SimpleChart = ({ data }) => {
             const max = Math.max(...data.map(i=>i.quantity), 1);
@@ -260,13 +292,25 @@
             </div>
         );
 
-        const SettingsView = ({ settings, setSettings, saveData, showNotif, doCloudSync }) => {
+        const SettingsView = ({ settings, setSettings, saveData, showNotif, doCloudSync, inventory, transactions }) => {
             const [copied, setCopied] = useState(false);
             const [showGuide, setShowGuide] = useState(false);
             const GOOGLE_SCRIPT_CODE = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var inv=[];var tx=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),employeeName:r[1],items:[{itemName:r[2],quantity:0,itemId:"0"}],timestamp:r[3],method:r[4]}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx})).setMimeType(ContentService.MimeType.JSON);}`;
 
             return (
                 <div className="max-w-2xl mx-auto space-y-6 animate-fade-in pb-12">
+                    <div className="bg-white p-6 rounded border">
+                         <h3 className="font-bold text-lg mb-4">Export Data</h3>
+                         <div className="grid grid-cols-2 gap-4">
+                            <button onClick={()=>exportToCSV(inventory, 'inventory.csv')} className="flex items-center justify-center gap-2 border p-3 rounded hover:bg-slate-50 text-sm font-bold">
+                                <Icons.Download/> Inventory CSV
+                            </button>
+                            <button onClick={()=>exportToCSV(transactions, 'history.csv')} className="flex items-center justify-center gap-2 border p-3 rounded hover:bg-slate-50 text-sm font-bold">
+                                <Icons.Download/> History CSV
+                            </button>
+                         </div>
+                    </div>
+
                     <div className="bg-white p-6 rounded border">
                          <h3 className="font-bold text-lg mb-2">Google Sheets Sync (Required for Phone Access)</h3>
                          <button onClick={()=>setShowGuide(!showGuide)} className="text-indigo-600 underline text-sm font-bold mb-4">
@@ -290,8 +334,8 @@
                         <label className="block text-xs font-bold text-slate-500 mb-1">Web App URL</label>
                         <input className="w-full p-2 border rounded mb-4 font-mono text-sm" placeholder="https://script.google.com/..." value={settings.sheetUrl} onChange={e=>setSettings({...settings, sheetUrl:e.target.value})}/>
                         <div className="flex gap-2">
-                            <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex-1">Save</button>
-                            <button onClick={doCloudSync} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1">Test Sync</button>
+                            <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex-1">Save Settings</button>
+                            <button onClick={()=>doCloudSync(false, true)} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1 flex items-center justify-center gap-2"><Icons.CloudUp/> Force Save to Cloud</button>
                         </div>
                     </div>
                     <div className="bg-white p-6 rounded border">
@@ -320,9 +364,18 @@
 
             const showNotif = (msg) => { setNotify(msg); setTimeout(() => setNotify(null), 3000); };
 
-            const doCloudSync = async (silent=false) => {
+            const doCloudSync = async (silent=false, forcePush=false) => {
                 if(!settings.sheetUrl) { if(!silent) showNotif('No Sheet URL'); return; }
-                if(!silent) showNotif('Syncing...');
+                if(!silent) showNotif(forcePush ? 'Saving to Cloud...' : 'Syncing...');
+                
+                // If Force Push, we skip fetching first and just overwrite cloud with local
+                if (forcePush) {
+                    await syncSheets(settings.sheetUrl, inventory, transactions);
+                    if(!silent) showNotif('Saved to Cloud!');
+                    return;
+                }
+
+                // Standard Sync: Fetch cloud, update local if cloud is present, then push back to sync up
                 const cloud = await fetchSheets(settings.sheetUrl);
                 if(cloud && cloud.inventory) {
                     setInventory(cloud.inventory);
@@ -429,7 +482,7 @@
                         </nav>
                         <div className="pt-4 border-t border-slate-800 space-y-2">
                             <button onClick={()=>setQrOpen(true)} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><Icons.Qr/> Mobile Access</button>
-                            <button onClick={()=>{doCloudSync();}} className="flex gap-2 text-xs text-green-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><Icons.Refresh/> Force Sync</button>
+                            <button onClick={()=>{doCloudSync();}} className="flex gap-2 text-xs text-green-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><Icons.Refresh/> Quick Sync</button>
                         </div>
                     </aside>
 
@@ -456,7 +509,10 @@
                             }
                             {view === 'HISTORY' && (
                                 <div className="space-y-4 animate-fade-in">
-                                    <h2 className="text-xl font-bold">History Log</h2>
+                                    <div className="flex justify-between items-center">
+                                        <h2 className="text-xl font-bold">History Log</h2>
+                                        <button onClick={()=>exportToCSV(transactions, 'history.csv')} className="text-indigo-600 text-xs font-bold underline flex items-center gap-1"><Icons.Download/> Export CSV</button>
+                                    </div>
                                     {transactions.map((t,i)=>(
                                         <div key={i} className="bg-white p-4 rounded border flex justify-between">
                                             <div><div className="font-bold">{t.employeeName}</div><div className="text-xs text-slate-400">{new Date(t.timestamp).toLocaleString()}</div></div>
@@ -470,6 +526,8 @@
                                     settings={settings} setSettings={setSettings}
                                     saveData={saveData} showNotif={showNotif}
                                     doCloudSync={doCloudSync}
+                                    inventory={inventory}
+                                    transactions={transactions}
                                 />
                             }
                         </div>
