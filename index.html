@@ -89,6 +89,66 @@
             { id: '6', name: 'Safety Goggles', category: 'Eye', quantity: 35, unit: 'pcs', threshold: 20 },
             { id: '8', name: 'Steel Toe Boots (Sz 10)', category: 'Foot', quantity: 4, unit: 'pairs', threshold: 5 },
         ];
+        
+        // This is the Google Apps Script code the user needs to copy
+        const GOOGLE_SCRIPT_CODE = `function doPost(e){
+  var d = JSON.parse(e.postData.contents);
+  var s = SpreadsheetApp.getActiveSpreadsheet();
+  var i = s.getSheetByName("Inventory") || s.insertSheet("Inventory");
+  var t = s.getSheetByName("Transactions") || s.insertSheet("Transactions");
+
+  if(d.action === "SYNC"){
+    // Clear and set Headers
+    i.clear();
+    i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);
+    // Fill Inventory
+    if(d.inventory.length){
+      var invRows = d.inventory.map(x => [x.id, x.name, x.category, x.quantity, x.unit, x.threshold, x.lastUpdated || ""]);
+      i.getRange(2, 1, invRows.length, 7).setValues(invRows);
+    }
+    
+    // Clear and set Headers
+    t.clear();
+    t.appendRow(["ID","Emp","Items","Time","Method"]);
+    // Fill Transactions
+    if(d.transactions.length){
+      var txRows = d.transactions.map(x => [
+        x.id,
+        x.employeeName,
+        x.items.map(z => z.quantity + "x " + z.itemName).join(", "),
+        x.timestamp,
+        x.method
+      ]);
+      t.getRange(2, 1, txRows.length, 5).setValues(txRows);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({status:"success"}))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function doGet(e){
+  var s = SpreadsheetApp.getActiveSpreadsheet();
+  var i = s.getSheetByName("Inventory");
+  var t = s.getSheetByName("Transactions");
+  var inv = [];
+  var tx = [];
+
+  if(i && i.getLastRow() > 1){
+    inv = i.getRange(2, 1, i.getLastRow()-1, 7).getValues().map(r => ({
+      id: String(r[0]), name: r[1], category: r[2], quantity: Number(r[3]), unit: r[4], threshold: Number(r[5]), lastUpdated: r[6]
+    }));
+  }
+  
+  if(t && t.getLastRow() > 1){
+    tx = t.getRange(2, 1, t.getLastRow()-1, 5).getValues().map(r => ({
+      id: String(r[0]), employeeName: r[1], items: [{itemName: r[2], quantity: 0, itemId: "0"}], timestamp: r[3], method: r[4]
+    }));
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify({status:"success", inventory: inv, transactions: tx}))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
 
         // --- SERVICES ---
         const safeParse = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
@@ -232,44 +292,78 @@
             </div>
         );
 
-        const SettingsView = ({ settings, setSettings, saveData, showNotif, setInventory, setTransactions, inventory, transactions, doCloudSync }) => (
-            <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
-                <div className="bg-white p-6 rounded border">
-                    <h3 className="font-bold text-lg mb-4">API & Sync</h3>
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Gemini API Key</label>
-                    <input type="password" className="w-full p-2 border rounded mb-4" value={settings.apiKey} onChange={e=>setSettings({...settings, apiKey:e.target.value})}/>
-                    
-                    <label className="block text-xs font-bold text-slate-500 mb-1">Google Sheet URL</label>
-                    <input className="w-full p-2 border rounded mb-4" value={settings.sheetUrl} onChange={e=>setSettings({...settings, sheetUrl:e.target.value})}/>
-                    
-                    <div className="bg-slate-50 p-3 rounded text-xs mb-4">
-                        <strong>Setup Guide:</strong>
-                        <ol className="list-decimal pl-4 mt-1 space-y-1">
-                            <li>Create Google Sheet > Extensions > Apps Script.</li>
-                            <li>Paste code: <code className="bg-slate-200 px-1">function doPost(e)...</code> (See docs).</li>
-                            <li>Deploy > New Deployment > Web App > Anyone.</li>
-                            <li>Paste URL above.</li>
-                        </ol>
+        const SettingsView = ({ settings, setSettings, saveData, showNotif, setInventory, setTransactions, inventory, transactions, doCloudSync }) => {
+            const [copied, setCopied] = useState(false);
+            const [showGuide, setShowGuide] = useState(false);
+
+            const copyCode = () => {
+                navigator.clipboard.writeText(GOOGLE_SCRIPT_CODE);
+                setCopied(true);
+                setTimeout(()=>setCopied(false), 2000);
+            };
+
+            return (
+                <div className="max-w-2xl mx-auto space-y-6 animate-fade-in pb-12">
+                    <div className="bg-white p-6 rounded border">
+                         <h3 className="font-bold text-lg mb-2">Google Sheets Sync Setup</h3>
+                         <button onClick={()=>setShowGuide(!showGuide)} className="text-indigo-600 underline text-sm font-bold mb-4">
+                            {showGuide ? "Hide Guide" : "Show Step-by-Step Setup Guide"}
+                         </button>
+
+                         {showGuide && (
+                             <div className="bg-indigo-50 border border-indigo-100 p-4 rounded text-sm text-slate-700 space-y-2 mb-6">
+                                <p><strong>1. Get the Code:</strong> Click the "Copy Script Code" button below.</p>
+                                <p><strong>2. Google Sheets:</strong> Create a new Sheet. Go to <span className="font-mono bg-white px-1">Extensions &gt; Apps Script</span>.</p>
+                                <p><strong>3. Paste:</strong> Delete existing code and Paste the copied code.</p>
+                                <p><strong>4. Deploy (Important):</strong> Click "Deploy" (Blue Button) &gt; "New Deployment".</p>
+                                <p className="pl-4 border-l-2 border-indigo-300">
+                                    &bull; Select type: <strong>Web App</strong><br/>
+                                    &bull; Description: v1<br/>
+                                    &bull; Execute as: <strong>Me</strong><br/>
+                                    &bull; Who has access: <strong>Anyone</strong> (CRITICAL STEP!)
+                                </p>
+                                <p><strong>5. Authorize:</strong> Click Deploy. You will see a "Warning" screen. Click "Advanced" &gt; "Go to (unsafe)" &gt; Allow.</p>
+                                <p><strong>6. Connect:</strong> Copy the "Web App URL" and paste it in the box below.</p>
+                             </div>
+                         )}
+
+                         <div className="bg-slate-900 text-slate-300 p-3 rounded font-mono text-xs h-32 overflow-y-auto mb-2 relative">
+                            {GOOGLE_SCRIPT_CODE}
+                            <button onClick={copyCode} className="absolute top-2 right-2 bg-white text-slate-900 px-2 py-1 rounded font-bold text-xs hover:bg-slate-200">
+                                {copied ? "Copied!" : "Copy Script Code"}
+                            </button>
+                         </div>
+
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Paste Web App URL Here</label>
+                        <input className="w-full p-2 border rounded mb-4 font-mono text-sm" placeholder="https://script.google.com/macros/s/..." value={settings.sheetUrl} onChange={e=>setSettings({...settings, sheetUrl:e.target.value})}/>
+                        
+                        <div className="flex gap-2">
+                            <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex-1">Save Settings</button>
+                            <button onClick={doCloudSync} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1">Test Sync</button>
+                        </div>
                     </div>
-                    <div className="flex gap-2">
-                         <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex-1">Save Settings</button>
-                         <button onClick={doCloudSync} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1">Force Sync</button>
+
+                    <div className="bg-white p-6 rounded border">
+                        <h3 className="font-bold mb-4">Gemini AI Key</h3>
+                        <input type="password" className="w-full p-2 border rounded" placeholder="Paste API Key..." value={settings.apiKey} onChange={e=>setSettings({...settings, apiKey:e.target.value})}/>
+                        <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Key Saved');}} className="mt-2 bg-slate-200 text-slate-700 px-4 py-1 rounded text-sm font-bold">Save Key</button>
+                    </div>
+
+                    <div className="bg-white p-6 rounded border">
+                        <h3 className="font-bold mb-4">Data Backup</h3>
+                        <div className="flex gap-4">
+                            <button onClick={()=>{const b=new Blob([JSON.stringify({inventory,transactions})],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();}} className="border px-4 py-2 rounded flex-1 hover:bg-slate-50">Download</button>
+                            <label className="border px-4 py-2 rounded flex-1 hover:bg-slate-50 text-center cursor-pointer">
+                                Restore <input type="file" className="hidden" accept=".json" onChange={e=>{
+                                    const f=e.target.files[0]; if(!f)return;
+                                    const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setInventory(d.inventory); setTransactions(d.transactions); saveData(STORAGE_KEYS.INVENTORY, d.inventory); saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions); showNotif('Restored');}catch{alert('Error');}}; r.readAsText(f);
+                                }}/>
+                            </label>
+                        </div>
                     </div>
                 </div>
-                <div className="bg-white p-6 rounded border">
-                    <h3 className="font-bold mb-4">Data Backup</h3>
-                    <div className="flex gap-4">
-                        <button onClick={()=>{const b=new Blob([JSON.stringify({inventory,transactions})],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();}} className="border px-4 py-2 rounded flex-1 hover:bg-slate-50">Download</button>
-                        <label className="border px-4 py-2 rounded flex-1 hover:bg-slate-50 text-center cursor-pointer">
-                            Restore <input type="file" className="hidden" accept=".json" onChange={e=>{
-                                const f=e.target.files[0]; if(!f)return;
-                                const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setInventory(d.inventory); setTransactions(d.transactions); saveData(STORAGE_KEYS.INVENTORY, d.inventory); saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions); showNotif('Restored');}catch{alert('Error');}}; r.readAsText(f);
-                            }}/>
-                        </label>
-                    </div>
-                </div>
-            </div>
-        );
+            );
+        };
 
         const HistoryView = ({ transactions }) => (
             <div className="space-y-4 animate-fade-in">
@@ -313,7 +407,7 @@
                     saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
                     showNotif('Sync Complete!');
                 } else {
-                    showNotif('Sync Failed (Check URL)');
+                    showNotif('Sync Failed. Check "Anyone" permission?');
                 }
             };
 
