@@ -3,83 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SafetyFirst PPE Tracker</title>
+    <title>Gold Coin Bekasi PPE Database</title>
     
-    <!-- 1. Error Handler (Must be first) -->
-    <script>
-        window.onerror = function(msg, url, line, col, error) {
-            document.getElementById('root').innerHTML = `
-                <div style="color: red; padding: 20px; font-family: sans-serif;">
-                    <h1>Something went wrong</h1>
-                    <p><strong>Error:</strong> ${msg}</p>
-                    <p><strong>Line:</strong> ${line}</p>
-                    <button onclick="localStorage.clear(); window.location.reload()">Reset App Data</button>
-                </div>
-            `;
-            return false;
-        };
-    </script>
-
-    <!-- 2. Libraries (Standard UMD) -->
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Babel for JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    
-    <!-- 3. Styles -->
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
-        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    </style>
-    
-    <!-- 4. Tailwind Config -->
+
+    <!-- Tailwind Config -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         safety: { 50: '#fff7ed', 100: '#ffedd5', 500: '#f97316', 600: '#ea580c', 700: '#c2410c' }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
                     }
                 }
             }
         }
     </script>
-<script type="importmap">
+
+    <!-- Import Map -->
+    <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
     "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
-    "vite": "https://aistudiocdn.com/vite@^7.2.4",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
   }
 }
 </script>
 </head>
-<body>
+<body class="bg-slate-50 text-slate-800 antialiased">
     <div id="root"></div>
 
-    <!-- 5. Application Logic -->
-    <script type="text/babel">
-        // --- SAFE IMPORTS ---
-        const { useState, useEffect, useRef } = React;
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+        import { 
+            LayoutDashboard, List, History, Settings as SettingsIcon, Shield, 
+            LogOut, QrCode, X, Plus, Edit2, Trash2, Save, Download, Upload, 
+            FileJson, Link, HelpCircle, CheckCircle, AlertTriangle, Package, 
+            BrainCircuit, Mic, Send, User 
+        } from 'lucide-react';
+        import { 
+            BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, 
+            Cell, CartesianGrid 
+        } from 'recharts';
+        import { GoogleGenAI, Type } from "@google/genai";
 
-        // --- CONSTANTS & MOCK DB ---
-        const STORAGE_KEYS = {
-            INVENTORY: 'ppe_inventory',
-            TRANSACTIONS: 'ppe_transactions',
-            SETTINGS: 'ppe_settings'
-        };
-
+        // --- CONSTANTS ---
         const INITIAL_INVENTORY = [
             { id: '1', name: 'Safety Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
             { id: '2', name: 'Safety Helmet (Yellow)', category: 'Head', quantity: 12, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
@@ -91,16 +75,21 @@
             { id: '8', name: 'Steel Toe Boots (Sz 10)', category: 'Foot', quantity: 4, unit: 'pairs', threshold: 5, lastUpdated: new Date().toISOString() },
         ];
 
-        // --- SERVICES ---
+        const GOOGLE_SCRIPT = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var inv=[];var tx=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),employeeName:r[1],items:[{itemName:r[2],quantity:0,itemId:"0"}],timestamp:r[3],method:r[4]}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx})).setMimeType(ContentService.MimeType.JSON);}`;
 
-        // Safe JSON Parse
+        // --- SERVICES ---
+        const STORAGE_KEYS = {
+            INVENTORY: 'ppe_inventory',
+            TRANSACTIONS: 'ppe_transactions',
+            SETTINGS: 'ppe_settings'
+        };
+
         const safeJsonParse = (str, fallback) => {
             try { return str ? JSON.parse(str) : fallback; } 
             catch (e) { console.error("Data corruption reset"); return fallback; }
         };
 
-        // Local Storage Service
-        const getSettings = () => safeJsonParse(localStorage.getItem(STORAGE_KEYS.SETTINGS), { googleSheetUrl: '', apiKey: '', lastSyncTime: null });
+        const getSettings = () => safeJsonParse(localStorage.getItem(STORAGE_KEYS.SETTINGS), { googleSheetUrl: '', lastSyncTime: null });
         const saveSettings = (settings) => localStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(settings));
 
         const getInventory = () => {
@@ -111,76 +100,72 @@
             }
             return safeJsonParse(stored, INITIAL_INVENTORY);
         };
+        const saveInventory = (inv) => localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inv));
 
         const getTransactions = () => safeJsonParse(localStorage.getItem(STORAGE_KEYS.TRANSACTIONS), []);
-
-        const saveTransaction = (transaction) => {
-            const transactions = getTransactions();
-            transactions.unshift(transaction);
-            localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+        const saveTransaction = (tx) => {
+            const list = getTransactions();
+            const updated = [tx, ...list];
+            localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(updated));
+            return updated;
         };
-
-        const updateInventoryStock = (itemsToDeduct) => {
-            const inventory = getInventory();
-            itemsToDeduct.forEach(({ itemId, quantity }) => {
-                const itemIndex = inventory.findIndex((i) => i.id === itemId);
-                if (itemIndex > -1) {
-                    inventory[itemIndex].quantity = Math.max(0, inventory[itemIndex].quantity - quantity);
-                    inventory[itemIndex].lastUpdated = new Date().toISOString();
-                }
-            });
-            localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(inventory));
-            return inventory;
-        };
+        const saveAllTransactions = (txs) => localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(txs));
 
         const getBackupData = () => ({
             inventory: getInventory(),
             transactions: getTransactions(),
             backupDate: new Date().toISOString()
         });
-
-        const restoreBackupData = (jsonData) => {
-            if (jsonData.inventory) localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(jsonData.inventory));
-            if (jsonData.transactions) localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(jsonData.transactions));
+        const restoreBackupData = (data) => {
+            if (data.inventory) saveInventory(data.inventory);
+            if (data.transactions) saveAllTransactions(data.transactions);
         };
 
-        // Gemini Service (REST API)
+        // --- GEMINI SERVICE ---
+        const apiKey = process.env.API_KEY;
+        const ai = new GoogleGenAI({ apiKey: apiKey });
+
         const parseCheckoutRequest = async (prompt, currentInventory) => {
-            const settings = getSettings();
-            if (!settings.apiKey) throw new Error("API Key missing. Go to Settings.");
+            if (!apiKey) throw new Error("API Key is missing.");
 
             const inventoryListString = currentInventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
             const systemInstruction = `
-                You are an inventory assistant. Extract structured data from the user request.
+                You are an inventory assistant for a PPE tracker.
                 Available Inventory:
                 ${inventoryListString}
                 
                 Instructions:
-                1. Identify employee name.
-                2. Map items to exact inventory names.
-                3. Return JSON only:
-                {
-                    "employeeName": "string",
-                    "items": [{"itemNameTarget": "exact name from list", "quantity": number}],
-                    "confidence": number 0-1
-                }
+                1. Identify the employee name. Default "Unknown".
+                2. Map items to exact names in the list.
+                3. Extract quantity. Default 1.
             `;
 
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }],
-                        system_instruction: { parts: [{ text: systemInstruction }] },
-                        generationConfig: { response_mime_type: "application/json" }
-                    })
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: prompt,
+                    config: {
+                        systemInstruction: systemInstruction,
+                        responseMimeType: "application/json",
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                employeeName: { type: Type.STRING },
+                                items: {
+                                    type: Type.ARRAY,
+                                    items: {
+                                        type: Type.OBJECT,
+                                        properties: {
+                                            itemNameTarget: { type: Type.STRING },
+                                            quantity: { type: Type.INTEGER }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 });
-                
-                const data = await response.json();
-                if(data.error) throw new Error(data.error.message);
-                const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-                return jsonText ? JSON.parse(jsonText) : null;
+                return JSON.parse(response.text);
             } catch (error) {
                 console.error("Gemini Error:", error);
                 throw error;
@@ -188,25 +173,22 @@
         };
 
         const generateInventoryInsights = async (inventory) => {
-            const settings = getSettings();
-            if (!settings.apiKey) return "Please enter your AI API Key in Settings to see insights.";
-
-            const prompt = `Analyze this inventory: ${JSON.stringify(inventory.map(i => ({n: i.name, q: i.quantity, t: i.threshold})))}. Provide a 2 sentence summary for a supervisor about stock health.`;
-
+            if (!apiKey) return "AI Insights require an API Key.";
+            const simplifiedInventory = inventory.map(i => ({n: i.name, q: i.quantity, t: i.threshold}));
+            const prompt = `Analyze this PPE inventory: ${JSON.stringify(simplifiedInventory)}. 
+            Provide a concise, 2-sentence summary for a safety supervisor about stock health.`;
             try {
-                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${settings.apiKey}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                const response = await ai.models.generateContent({
+                    model: 'gemini-2.5-flash',
+                    contents: prompt,
                 });
-                const data = await response.json();
-                return data.candidates?.[0]?.content?.parts?.[0]?.text || "No insights available.";
+                return response.text || "No insights available.";
             } catch (e) {
-                return "AI Insight unavailable (Check API Key).";
+                return "AI Insight unavailable.";
             }
         };
 
-        // Google Sheets Service
+        // --- SHEETS SERVICE ---
         const syncWithSheet = async (inventory, transactions) => {
             const settings = getSettings();
             if (!settings.googleSheetUrl) return { success: false, message: "No Google Sheet URL." };
@@ -222,9 +204,9 @@
                     saveSettings({ ...settings, lastSyncTime: new Date().toISOString() });
                     return { success: true };
                 }
-                return { success: false, message: "Sync failed" };
+                return { success: false };
             } catch (e) {
-                return { success: false, message: "Connection error" };
+                return { success: false };
             }
         };
 
@@ -242,62 +224,125 @@
 
         // --- COMPONENTS ---
 
-        const SimpleBarChart = ({ data }) => {
-            const maxVal = Math.max(...data.map(d => d.quantity), 1);
+        const StockChart = ({ data }) => {
+            const chartData = data.map(item => ({
+                name: item.name.split('(')[0].trim(),
+                quantity: item.quantity,
+                threshold: item.threshold
+            }));
             return (
-                <div className="h-48 flex items-end gap-2 w-full pt-6">
-                    {data.map((item, idx) => (
-                        <div key={idx} className="flex-1 flex flex-col items-center group relative h-full justify-end">
-                            <div className="absolute bottom-full mb-2 opacity-0 group-hover:opacity-100 bg-slate-800 text-white text-xs px-2 py-1 rounded transition-opacity z-10 whitespace-nowrap">
-                                {item.name}: {item.quantity}
-                            </div>
-                            <div 
-                                style={{ height: `${(item.quantity / maxVal) * 100}%` }}
-                                className={`w-full rounded-t-sm transition-all duration-500 ${item.isLow ? 'bg-red-500' : 'bg-blue-500 hover:bg-blue-600'}`}
-                            ></div>
-                            <span className="text-[10px] text-slate-500 mt-1 truncate w-full text-center block overflow-hidden">{item.name.split(' ')[0]}</span>
-                        </div>
-                    ))}
+                <div className="h-64 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                            <XAxis dataKey="name" tick={{ fontSize: 10, fill: '#64748b' }} interval={0} angle={-15} textAnchor="end" height={40} />
+                            <YAxis tick={{ fontSize: 11, fill: '#64748b' }} />
+                            <Tooltip cursor={{ fill: '#f8fafc' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
+                            <Bar dataKey="quantity" radius={[4, 4, 0, 0]}>
+                                {chartData.map((entry, index) => (
+                                    <Cell key={`cell-${index}`} fill={entry.quantity <= entry.threshold ? '#ef4444' : '#3b82f6'} />
+                                ))}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
                 </div>
             );
         };
 
-        const Dashboard = ({ inventory, transactions }) => {
-            const [insight, setInsight] = useState('Loading AI insights...');
+        const InventoryModal = ({ isOpen, onClose, onSave, initialData }) => {
+            const [formData, setFormData] = useState({ name: '', category: 'General', quantity: 0, unit: 'pcs', threshold: 5 });
 
             useEffect(() => {
-                generateInventoryInsights(inventory).then(setInsight);
-            }, [inventory]);
+                if (isOpen) {
+                    setFormData(initialData || { name: '', category: 'General', quantity: 0, unit: 'pcs', threshold: 5 });
+                }
+            }, [isOpen, initialData]);
 
-            const lowStockCount = inventory.filter(i => i.quantity <= i.threshold).length;
-            const totalItems = inventory.reduce((acc, curr) => acc + curr.quantity, 0);
-            
-            const chartData = inventory.map(item => ({
-                name: item.name,
-                quantity: item.quantity,
-                threshold: item.threshold,
-                isLow: item.quantity <= item.threshold
-            }));
+            if (!isOpen) return null;
 
             return (
-                <div className="space-y-6 animate-fade-in">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                            <h3 className="text-slate-500 text-xs font-bold uppercase">Total Stock</h3>
-                            <p className="text-3xl font-bold text-slate-800 mt-2">{totalItems}</p>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md overflow-hidden animate-fade-in">
+                        <div className="flex justify-between items-center p-4 border-b border-slate-100 bg-slate-50">
+                            <h3 className="font-bold text-lg text-slate-800">{initialData ? 'Edit Item' : 'Add New Item'}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
                         </div>
-                        <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                            <h3 className="text-slate-500 text-xs font-bold uppercase">Low Stock Alerts</h3>
-                            <p className={`text-3xl font-bold mt-2 ${lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{lowStockCount}</p>
-                        </div>
-                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-6 rounded-xl shadow-md text-white">
-                            <h3 className="text-indigo-200 text-xs font-bold uppercase mb-2">AI Insight</h3>
-                            <p className="text-sm font-light italic opacity-90">{insight}</p>
-                        </div>
+                        <form onSubmit={(e) => { e.preventDefault(); onSave(formData); }} className="p-6 space-y-4">
+                            <div>
+                                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item Name</label>
+                                <input type="text" required className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Category</label>
+                                    <select className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})}>
+                                        <option value="Head">Head</option><option value="Eye">Eye</option><option value="Apparel">Apparel</option><option value="Hand">Hand</option><option value="Foot">Foot</option><option value="Hearing">Hearing</option><option value="General">General</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Unit</label>
+                                    <input type="text" className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.unit} onChange={e => setFormData({...formData, unit: e.target.value})} />
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Quantity</label>
+                                    <input type="number" min="0" required className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.quantity} onChange={e => setFormData({...formData, quantity: parseInt(e.target.value) || 0})} />
+                                </div>
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Low Stock Limit</label>
+                                    <input type="number" min="0" className="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-safety-500 outline-none" value={formData.threshold} onChange={e => setFormData({...formData, threshold: parseInt(e.target.value) || 0})} />
+                                </div>
+                            </div>
+                            <div className="pt-4 flex gap-3">
+                                <button type="button" onClick={onClose} className="flex-1 py-2 px-4 border border-slate-300 text-slate-600 rounded-lg hover:bg-slate-50 font-medium">Cancel</button>
+                                <button type="submit" className="flex-1 py-2 px-4 bg-safety-600 text-white rounded-lg hover:bg-safety-700 font-bold flex items-center justify-center gap-2"><Save className="w-4 h-4" /> Save Item</button>
+                            </div>
+                        </form>
                     </div>
-                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
-                         <h3 className="text-lg font-semibold text-slate-800 mb-4">Stock Levels</h3>
-                         <SimpleBarChart data={chartData} />
+                </div>
+            );
+        };
+
+        const InventoryTable = ({ inventory, onEdit, onDelete }) => {
+            const isEditable = !!onEdit && !!onDelete;
+            return (
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-slate-600">
+                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500 tracking-wider">
+                                <tr>
+                                    <th className="px-6 py-4">Item Name</th>
+                                    <th className="px-6 py-4">Category</th>
+                                    <th className="px-6 py-4">Quantity</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    {isEditable && <th className="px-6 py-4 text-right">Actions</th>}
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {inventory.map(item => (
+                                    <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-6 py-4 font-medium text-slate-800">{item.name}</td>
+                                        <td className="px-6 py-4 text-slate-500">{item.category}</td>
+                                        <td className="px-6 py-4 font-mono">{item.quantity} <span className="text-slate-400 text-xs">{item.unit}</span></td>
+                                        <td className="px-6 py-4">
+                                            <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${item.quantity <= item.threshold ? 'bg-red-100 text-red-700 border border-red-200' : 'bg-green-100 text-green-700 border border-green-200'}`}>
+                                                {item.quantity <= item.threshold ? 'Low Stock' : 'In Stock'}
+                                            </span>
+                                        </td>
+                                        {isEditable && (
+                                            <td className="px-6 py-4 text-right">
+                                                <div className="flex justify-end gap-2">
+                                                    <button onClick={() => onEdit(item)} className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded"><Edit2 className="w-4 h-4" /></button>
+                                                    <button onClick={() => { if(window.confirm('Delete this item?')) onDelete(item.id); }} className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"><Trash2 className="w-4 h-4" /></button>
+                                                </div>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))}
+                                {inventory.length === 0 && <tr><td colSpan={5} className="px-6 py-8 text-center text-slate-400">No inventory items found.</td></tr>}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             );
@@ -321,12 +366,10 @@
 
             const handleAiSubmit = async (e) => {
                 e.preventDefault();
+                if(!aiPrompt.trim()) return;
                 setIsLoading(true); setAiError('');
                 try {
                     const result = await parseCheckoutRequest(aiPrompt, inventory);
-                    if (!result || !result.items || result.items.length === 0) {
-                        throw new Error("Could not understand request.");
-                    }
                     const itemsToCheckout = [];
                     const notFound = [];
                     result.items.forEach(pItem => {
@@ -335,45 +378,44 @@
                         else notFound.push(pItem.itemNameTarget);
                     });
 
-                    if (notFound.length > 0) throw new Error(`Items not found: ${notFound.join(', ')}`);
-                    
+                    if (notFound.length > 0 && itemsToCheckout.length === 0) throw new Error(`Could not match: ${notFound.join(', ')}`);
                     onSubmit(result.employeeName || "Unknown", itemsToCheckout, 'AI');
                     setAiPrompt('');
-                } catch (err) {
-                    if (err.message.includes("API Key")) setAiError("Missing API Key. Go to Settings.");
-                    else setAiError(err.message || "Error processing request.");
-                } finally {
-                    setIsLoading(false);
-                }
+                } catch (err) { setAiError(err.message || "Error processing request."); } 
+                finally { setIsLoading(false); }
             };
 
             return (
-                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="flex border-b border-slate-200">
-                        <button onClick={() => setActiveTab('manual')} className={`flex-1 py-3 text-sm font-medium ${activeTab === 'manual' ? 'text-safety-600 border-b-2 border-safety-500' : 'text-slate-500'}`}>Manual</button>
-                        <button onClick={() => setActiveTab('ai')} className={`flex-1 py-3 text-sm font-medium ${activeTab === 'ai' ? 'text-indigo-600 border-b-2 border-indigo-500' : 'text-slate-500'}`}>AI Assistant</button>
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-full">
+                    <div className="flex border-b border-slate-100">
+                        <button onClick={() => setActiveTab('manual')} className={`flex-1 py-4 text-sm font-semibold ${activeTab === 'manual' ? 'text-safety-600 border-b-2 border-safety-500 bg-safety-50' : 'text-slate-500'}`}>Manual Entry</button>
+                        <button onClick={() => setActiveTab('ai')} className={`flex-1 py-4 text-sm font-semibold ${activeTab === 'ai' ? 'text-indigo-600 border-b-2 border-indigo-500 bg-indigo-50' : 'text-slate-500'}`}>AI Assistant</button>
                     </div>
-                    <div className="p-6">
+                    <div className="p-6 flex-1">
                         {activeTab === 'manual' ? (
                             <form onSubmit={handleManualSubmit} className="space-y-4">
-                                <input type="text" placeholder="Employee Name" className="w-full p-2 border rounded" value={employeeName} onChange={e => setEmployeeName(e.target.value)} required />
-                                <div className="flex gap-2">
-                                    <select className="flex-1 p-2 border rounded" value={selectedItemId} onChange={e => setSelectedItemId(e.target.value)} required>
-                                        <option value="">Select Item...</option>
-                                        {inventory.map(i => <option key={i.id} value={i.id} disabled={i.quantity===0}>{i.name}</option>)}
-                                    </select>
-                                    <input type="number" min="1" className="w-20 p-2 border rounded" value={quantity} onChange={e => setQuantity(parseInt(e.target.value))} required />
+                                <div>
+                                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Employee</label>
+                                    <div className="relative"><User className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" /><input type="text" placeholder="e.g. John Doe" className="w-full pl-9 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-safety-500" value={employeeName} onChange={e => setEmployeeName(e.target.value)} required /></div>
                                 </div>
-                                <button type="submit" className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Checkout</button>
+                                <div className="grid grid-cols-3 gap-3">
+                                    <div className="col-span-2">
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Item</label>
+                                        <div className="relative"><Package className="absolute left-3 top-2.5 text-slate-400 w-4 h-4" /><select className="w-full pl-9 p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-safety-500" value={selectedItemId} onChange={e => setSelectedItemId(e.target.value)} required><option value="">Select...</option>{inventory.map(i => <option key={i.id} value={i.id} disabled={i.quantity === 0}>{i.name} ({i.quantity})</option>)}</select></div>
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Qty</label>
+                                        <input type="number" min="1" className="w-full p-2 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-safety-500" value={quantity} onChange={e => setQuantity(parseInt(e.target.value) || 1)} required />
+                                    </div>
+                                </div>
+                                <button type="submit" className="w-full bg-safety-600 text-white py-3 rounded-lg font-bold hover:bg-safety-700 transition-colors shadow-sm">Confirm Checkout</button>
                             </form>
                         ) : (
-                            <form onSubmit={handleAiSubmit} className="space-y-4">
-                                <p className="text-xs text-indigo-600 bg-indigo-50 p-2 rounded">Try: "Mike took 2 helmets and a vest"</p>
-                                <textarea className="w-full p-2 border rounded h-20" placeholder="Type here..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} required></textarea>
-                                {aiError && <p className="text-xs text-red-600">{aiError}</p>}
-                                <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">
-                                    {isLoading ? 'Processing...' : 'Process with AI'}
-                                </button>
+                            <form onSubmit={handleAiSubmit} className="space-y-4 h-full flex flex-col">
+                                <div className="bg-indigo-50 border border-indigo-100 p-3 rounded-lg"><p className="text-xs text-indigo-700 font-medium flex items-center gap-2"><Mic className="w-4 h-4" /> Try: "Mike needs 2 white helmets"</p></div>
+                                <textarea className="w-full flex-1 p-3 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none text-slate-700" placeholder="Type request..." value={aiPrompt} onChange={e => setAiPrompt(e.target.value)} required></textarea>
+                                {aiError && <p className="text-xs text-red-600 bg-red-50 p-2 rounded">{aiError}</p>}
+                                <button type="submit" disabled={isLoading} className="w-full bg-indigo-600 text-white py-3 rounded-lg font-bold hover:bg-indigo-700 transition-colors shadow-sm disabled:opacity-50 flex items-center justify-center gap-2">{isLoading ? 'Processing...' : <><Send className="w-4 h-4" /> Process</>}</button>
                             </form>
                         )}
                     </div>
@@ -381,196 +423,255 @@
             );
         };
 
-        const InventoryTable = ({ inventory }) => (
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <table className="w-full text-left text-sm text-slate-600">
-                    <thead className="bg-slate-100 text-xs font-bold uppercase text-slate-700">
-                        <tr><th className="px-6 py-3">Item</th><th className="px-6 py-3">Qty</th><th className="px-6 py-3">Status</th></tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {inventory.map(item => (
-                            <tr key={item.id} className="hover:bg-slate-50">
-                                <td className="px-6 py-4 font-medium">{item.name}</td>
-                                <td className="px-6 py-4">{item.quantity} {item.unit}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${item.quantity <= item.threshold ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
-                                        {item.quantity <= item.threshold ? 'Low' : 'Good'}
-                                    </span>
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
-            </div>
-        );
-
-        const HistoryLog = ({ transactions }) => (
-            <div className="space-y-3">
-                {transactions.length === 0 && <p className="text-slate-500 text-center py-8">No history yet.</p>}
-                {transactions.map(tx => (
-                    <div key={tx.id} className="bg-white p-4 rounded-lg shadow-sm border flex justify-between items-center">
-                        <div>
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-slate-800">{tx.employeeName}</span>
-                                <span className="text-[10px] uppercase border px-1 rounded text-slate-500">{tx.method}</span>
-                            </div>
-                            <p className="text-xs text-slate-400">{new Date(tx.timestamp).toLocaleString()}</p>
-                        </div>
-                        <div className="text-right text-sm">
-                            {tx.items.map((i, idx) => <div key={idx}><span className="text-safety-600 font-bold">-{i.quantity}</span> {i.itemName}</div>)}
-                        </div>
-                    </div>
-                ))}
-            </div>
-        );
-
-        const Settings = ({ onSync }) => {
-            const [settings, setLocalSettings] = useState({ googleSheetUrl: '', apiKey: '', lastSyncTime: null });
+        const SettingsPage = ({ onSync }) => {
+            const [settings, setLocalSettings] = useState({ googleSheetUrl: '', lastSyncTime: null });
             const [status, setStatus] = useState('');
-            const fileInputRef = useRef(null);
+            const [showGuide, setShowGuide] = useState(false);
 
-            useEffect(() => {
-                setLocalSettings(getSettings());
-            }, []);
+            useEffect(() => { setLocalSettings(getSettings()); }, []);
 
-            const handleSave = () => {
-                saveSettings(settings);
-                setStatus('Saved!');
-                setTimeout(() => setStatus(''), 2000);
-            };
-
-            const handleDownload = () => {
-                const data = JSON.stringify(getBackupData(), null, 2);
-                const blob = new Blob([data], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a'); a.href = url; a.download = 'backup.json';
-                a.click();
-            };
-
+            const handleSave = () => { saveSettings(settings); setStatus('Saved!'); setTimeout(() => setStatus(''), 2000); };
             const handleRestore = (e) => {
-                const file = e.target.files[0];
+                const file = e.target.files?.[0];
                 if (!file) return;
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    try {
-                        restoreBackupData(JSON.parse(e.target.result));
-                        onSync(); setStatus('Restored!');
-                    } catch(err) { setStatus('Error file'); }
+                    try { restoreBackupData(JSON.parse(e.target.result)); onSync(); setStatus('Restored!'); } 
+                    catch(err) { setStatus('Error'); }
                 };
                 reader.readAsText(file);
             };
-            
-            const GOOGLE_SCRIPT = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var inv=[];var tx=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),employeeName:r[1],items:[{itemName:r[2],quantity:0,itemId:"0"}],timestamp:r[3],method:r[4]}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx})).setMimeType(ContentService.MimeType.JSON);}`;
+            const handleDownload = () => {
+                const url = URL.createObjectURL(new Blob([JSON.stringify(getBackupData(), null, 2)], { type: 'application/json' }));
+                const a = document.createElement('a'); a.href = url; a.download = 'backup.json'; a.click();
+            };
 
             return (
-                <div className="bg-white p-6 rounded-xl border space-y-8 animate-fade-in">
-                    <section>
-                        <h3 className="font-bold text-lg mb-4">1. Gemini AI Key (Required for AI)</h3>
-                        <p className="text-sm text-slate-500 mb-2">Get a free key at <a href="https://aistudio.google.com/app/apikey" target="_blank" className="text-indigo-600 underline">aistudio.google.com</a></p>
-                        <input type="password" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste API Key here..." value={settings.apiKey} onChange={e => setLocalSettings({...settings, apiKey: e.target.value})} />
-                    </section>
-
-                    <section>
-                        <h3 className="font-bold text-lg mb-4">2. Google Sheet Connection</h3>
-                        <p className="text-sm text-slate-500 mb-2">Apps Script Code (Copy this to Extensions > Apps Script):</p>
-                        <textarea readOnly className="w-full h-24 p-2 bg-slate-800 text-slate-300 text-xs font-mono rounded mb-2" value={GOOGLE_SCRIPT}></textarea>
-                        <input type="text" className="w-full p-2 border rounded font-mono text-sm" placeholder="Paste Web App URL here..." value={settings.googleSheetUrl} onChange={e => setLocalSettings({...settings, googleSheetUrl: e.target.value})} />
-                    </section>
-                    
-                    <div className="flex gap-4">
-                        <button onClick={handleSave} className="bg-safety-600 text-white px-6 py-2 rounded font-bold hover:bg-safety-700">Save Settings</button>
-                        {status && <span className="text-green-600 py-2">{status}</span>}
+                <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
+                    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                        <div className="flex justify-between items-start mb-6">
+                            <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2"><Link className="w-5 h-5 text-safety-600" /> Google Sheets Integration</h2>
+                            <button onClick={() => setShowGuide(!showGuide)} className="text-indigo-600 text-sm font-medium flex items-center gap-1 hover:underline"><HelpCircle className="w-4 h-4" /> {showGuide ? 'Hide Guide' : 'Connect Guide'}</button>
+                        </div>
+                        {showGuide && (
+                            <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-5 mb-6 text-sm text-slate-700 space-y-3">
+                                <ol className="list-decimal pl-5 space-y-2">
+                                    <li>Create new <a href="https://sheets.google.com" target="_blank" className="underline text-indigo-600">Google Sheet</a>. Extensions &gt; Apps Script.</li>
+                                    <li>Paste code below. Click Deploy &gt; New Deployment. Select <strong>Web App</strong>.</li>
+                                    <li>Set "Who has access" to <strong>Anyone</strong>. Deploy. Copy URL.</li>
+                                </ol>
+                            </div>
+                        )}
+                        <div className="space-y-4">
+                            <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 relative">
+                                <p className="text-sm font-medium text-slate-700 mb-2">Apps Script Code</p>
+                                <textarea readOnly className="w-full h-24 p-3 bg-slate-900 text-slate-300 text-xs font-mono rounded-lg focus:outline-none" value={GOOGLE_SCRIPT}></textarea>
+                                <button onClick={() => { navigator.clipboard.writeText(GOOGLE_SCRIPT); setStatus("Copied!"); }} className="absolute top-10 right-6 bg-white/10 text-white text-xs px-2 py-1 rounded">Copy</button>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-medium text-slate-700 mb-1">Web App URL</label>
+                                <input type="text" className="w-full p-2.5 bg-white border border-slate-300 rounded-lg" placeholder="https://script.google.com/..." value={settings.googleSheetUrl} onChange={e => setLocalSettings({...settings, googleSheetUrl: e.target.value})} />
+                            </div>
+                            <div className="flex items-center gap-4 pt-2">
+                                <button onClick={handleSave} className="flex items-center gap-2 bg-safety-600 text-white px-6 py-2.5 rounded-lg font-bold hover:bg-safety-700"><Save className="w-4 h-4" /> Save</button>
+                                {status && <span className="text-sm font-medium text-green-600">{status}</span>}
+                            </div>
+                        </div>
                     </div>
-
-                    <div className="pt-8 border-t">
-                        <h3 className="font-bold text-lg mb-4">Data Backup</h3>
-                        <div className="flex gap-4">
-                            <button onClick={handleDownload} className="border px-4 py-2 rounded hover:bg-slate-50">Download Backup</button>
-                            <label className="border px-4 py-2 rounded hover:bg-slate-50 cursor-pointer">
-                                Restore Backup <input type="file" className="hidden" accept=".json" onChange={handleRestore} />
-                            </label>
+                    <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200">
+                        <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2"><FileJson className="w-5 h-5 text-indigo-600" /> Data Management</h2>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <button onClick={handleDownload} className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50"><Download className="w-8 h-8 text-slate-400 mb-3" /><span className="font-semibold text-slate-700">Download Backup</span></button>
+                            <label className="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-200 rounded-xl hover:border-safety-300 hover:bg-safety-50 cursor-pointer"><Upload className="w-8 h-8 text-slate-400 mb-3" /><span className="font-semibold text-slate-700">Restore Backup</span><input type="file" className="hidden" accept=".json" onChange={handleRestore} /></label>
                         </div>
                     </div>
                 </div>
             );
         };
+
+        const Dashboard = ({ inventory, transactions }) => {
+            const [insight, setInsight] = useState('Generating AI insights...');
+            useEffect(() => { generateInventoryInsights(inventory).then(setInsight); }, [inventory]);
+            const lowStockCount = inventory.filter(i => i.quantity <= i.threshold).length;
+            const totalItems = inventory.reduce((acc, curr) => acc + curr.quantity, 0);
+
+            return (
+                <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><Package className="w-6 h-6" /></div>
+                            <div><p className="text-slate-500 text-xs font-bold uppercase tracking-wide">Total Items</p><p className="text-2xl font-bold text-slate-800">{totalItems}</p></div>
+                        </div>
+                        <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-100 flex items-center gap-4">
+                            <div className={`w-12 h-12 rounded-full flex items-center justify-center ${lowStockCount > 0 ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>{lowStockCount > 0 ? <AlertTriangle className="w-6 h-6" /> : <CheckCircle className="w-6 h-6" />}</div>
+                            <div><p className="text-slate-500 text-xs font-bold uppercase tracking-wide">Low Stock Alerts</p><p className={`text-2xl font-bold ${lowStockCount > 0 ? 'text-red-600' : 'text-green-600'}`}>{lowStockCount}</p></div>
+                        </div>
+                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 p-5 rounded-xl shadow-md text-white flex flex-col justify-center relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-4 opacity-10"><BrainCircuit className="w-16 h-16" /></div>
+                            <h3 className="text-indigo-200 text-xs font-bold uppercase mb-2 flex items-center gap-2"><BrainCircuit className="w-4 h-4" /> AI Insight</h3>
+                            <p className="text-sm font-light leading-relaxed opacity-95">{insight}</p>
+                        </div>
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
+                        <div className="flex justify-between items-center mb-6"><h3 className="text-lg font-bold text-slate-800">Stock Levels Overview</h3></div>
+                        <StockChart data={inventory} />
+                    </div>
+                </div>
+            );
+        };
+
+        const HistoryLog = ({ transactions }) => (
+            <div className="space-y-4">
+                <h2 className="text-xl font-bold text-slate-800">Transaction History</h2>
+                {transactions.length === 0 && <div className="text-center py-12 bg-white rounded-xl border border-dashed border-slate-300"><p className="text-slate-500">No transactions recorded yet.</p></div>}
+                <div className="grid gap-3">
+                    {transactions.map(tx => (
+                        <div key={tx.id} className="bg-white p-4 rounded-xl shadow-sm border border-slate-100 flex flex-col sm:flex-row justify-between items-center gap-4">
+                            <div>
+                                <div className="flex items-center gap-3 mb-1"><span className="font-bold text-slate-800 text-lg">{tx.employeeName}</span><span className={`text-[10px] uppercase px-2 py-0.5 rounded font-bold ${tx.method === 'AI' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-600'}`}>{tx.method}</span></div>
+                                <p className="text-xs text-slate-400">{new Date(tx.timestamp).toLocaleString()}</p>
+                            </div>
+                            <div className="text-right w-full sm:w-auto bg-slate-50 p-3 rounded-lg sm:bg-transparent sm:p-0">
+                                {tx.items.map((i, idx) => (<div key={idx} className="text-sm text-slate-700"><span className="text-slate-500">{i.itemName}</span> <span className="font-bold text-safety-600">-{i.quantity}</span></div>))}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        );
 
         const App = () => {
             const [view, setView] = useState('DASHBOARD');
             const [inventory, setInventory] = useState([]);
             const [transactions, setTransactions] = useState([]);
             const [notification, setNotification] = useState(null);
+            const [showQr, setShowQr] = useState(false);
+            const [isModalOpen, setIsModalOpen] = useState(false);
+            const [editingItem, setEditingItem] = useState(null);
 
             const loadData = async () => {
                 const cloud = await fetchFromSheet();
-                if (cloud.inventory) {
+                if (cloud.inventory && Array.isArray(cloud.inventory)) {
                     setInventory(cloud.inventory);
-                    setTransactions(cloud.transactions);
-                    localStorage.setItem(STORAGE_KEYS.INVENTORY, JSON.stringify(cloud.inventory));
-                    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(cloud.transactions));
+                    setTransactions(cloud.transactions || []);
+                    saveInventory(cloud.inventory);
+                    saveAllTransactions(cloud.transactions || []);
                 } else {
                     setInventory(getInventory());
                     setTransactions(getTransactions());
                 }
             };
-
             useEffect(() => { loadData(); }, []);
 
-            const handleTransaction = async (name, items, method) => {
+            const showNotification = (msg) => { setNotification(msg); setTimeout(() => setNotification(null), 3000); };
+
+            const handleTransaction = async (employeeName, items, method) => {
                 const newTx = {
                     id: Date.now().toString(),
-                    employeeName: name,
-                    items: items.map(i => {
-                        const d = inventory.find(x => x.id === i.itemId);
-                        return { itemId: i.itemId, itemName: d ? d.name : 'Unknown', quantity: i.quantity };
-                    }),
+                    employeeName,
+                    items: items.map(i => { const d = inventory.find(x => x.id === i.itemId); return { itemId: i.itemId, itemName: d ? d.name : 'Unknown', quantity: i.quantity }; }),
                     timestamp: new Date().toISOString(),
                     method
                 };
-                const updatedInv = updateInventoryStock(items);
-                const updatedTx = [newTx, ...transactions];
-                setInventory(updatedInv);
-                setTransactions(updatedTx);
+                const updatedInventory = inventory.map(item => {
+                    const txItem = items.find(i => i.itemId === item.id);
+                    return txItem ? { ...item, quantity: Math.max(0, item.quantity - txItem.quantity), lastUpdated: new Date().toISOString() } : item;
+                });
+                setInventory(updatedInventory);
+                setTransactions([newTx, ...transactions]);
+                saveInventory(updatedInventory);
                 saveTransaction(newTx);
-                setNotification("Updated!");
-                setTimeout(() => setNotification(null), 3000);
-                await syncWithSheet(updatedInv, updatedTx);
+                showNotification("Updated!");
+                await syncWithSheet(updatedInventory, [newTx, ...transactions]);
+            };
+
+            const handleSaveItem = async (item) => {
+                let updatedInventory;
+                if (editingItem) {
+                    updatedInventory = inventory.map(i => i.id === editingItem.id ? { ...item, id: editingItem.id, lastUpdated: new Date().toISOString() } : i);
+                    showNotification("Item updated");
+                } else {
+                    updatedInventory = [...inventory, { ...item, id: Date.now().toString(), lastUpdated: new Date().toISOString() }];
+                    showNotification("Item added");
+                }
+                setInventory(updatedInventory);
+                saveInventory(updatedInventory);
+                setIsModalOpen(false);
+                await syncWithSheet(updatedInventory, transactions);
+            };
+
+            const handleDeleteItem = async (id) => {
+                const updatedInventory = inventory.filter(i => i.id !== id);
+                setInventory(updatedInventory);
+                saveInventory(updatedInventory);
+                showNotification("Item deleted");
+                await syncWithSheet(updatedInventory, transactions);
             };
 
             return (
-                <div className="min-h-screen flex flex-col md:flex-row">
-                    <aside className="bg-slate-900 text-white w-full md:w-64 p-4 flex flex-col flex-shrink-0">
-                        <div className="mb-8 p-2">
-                            <h1 className="text-xl font-bold flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-safety-500"></span> SafetyFirst</h1>
+                <div className="min-h-screen flex flex-col md:flex-row bg-slate-50">
+                    <aside className="bg-slate-900 text-white w-full md:w-64 flex flex-col flex-shrink-0 shadow-xl z-20">
+                        <div className="p-6">
+                            <div className="flex items-center gap-3 text-safety-500 mb-1"><Shield className="w-8 h-8" /><h1 className="text-lg font-bold text-white leading-tight">Gold Coin Bekasi</h1></div>
+                            <p className="text-xs text-slate-500 pl-11">PPE Database</p>
                         </div>
-                        <nav className="space-y-2 flex-1">
-                            {['DASHBOARD', 'INVENTORY', 'HISTORY', 'SETTINGS'].map(v => (
-                                <button key={v} onClick={() => setView(v)} className={`w-full text-left px-4 py-3 rounded text-sm font-medium ${view === v ? 'bg-safety-600' : 'hover:bg-slate-800 text-slate-300'}`}>
-                                    {v.charAt(0) + v.slice(1).toLowerCase()}
+                        <nav className="flex-1 px-4 space-y-2 py-4">
+                            {[
+                                { id: 'DASHBOARD', label: 'Dashboard', icon: LayoutDashboard },
+                                { id: 'INVENTORY', label: 'Inventory', icon: List },
+                                { id: 'HISTORY', label: 'History Log', icon: History },
+                                { id: 'SETTINGS', label: 'Settings', icon: SettingsIcon },
+                            ].map(item => (
+                                <button key={item.id} onClick={() => setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-all ${view === item.id ? 'bg-safety-600 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800 hover:text-white'}`}>
+                                    <item.icon className="w-5 h-5" /> {item.label}
                                 </button>
                             ))}
                         </nav>
-                        <button onClick={() => {localStorage.clear(); window.location.reload();}} className="text-xs text-slate-600 mt-4 text-left">Reset App</button>
+                        <div className="p-4 border-t border-slate-800 space-y-2">
+                            <button onClick={() => setShowQr(true)} className="flex items-center gap-2 text-xs text-slate-400 hover:text-white transition-colors w-full px-4 py-2 hover:bg-slate-800 rounded-lg"><QrCode className="w-3 h-3" /> Mobile Access</button>
+                            <button onClick={() => { if(window.confirm("Reset all app data?")) { localStorage.clear(); window.location.reload(); } }} className="flex items-center gap-2 text-xs text-slate-600 hover:text-red-400 transition-colors w-full px-4 py-2"><LogOut className="w-3 h-3" /> Reset App</button>
+                        </div>
                     </aside>
-                    <main className="flex-1 p-4 md:p-8 overflow-y-auto relative">
-                        {notification && <div className="fixed top-4 right-4 bg-green-600 text-white px-6 py-3 rounded shadow animate-bounce z-50">{notification}</div>}
-                        <div className="max-w-5xl mx-auto">
-                            {view === 'DASHBOARD' && (
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                                    <div className="lg:col-span-1"><h2 className="font-bold mb-4">Checkout</h2><CheckoutForm inventory={inventory} onSubmit={handleTransaction} /></div>
-                                    <div className="lg:col-span-2 space-y-8"><Dashboard inventory={inventory} transactions={transactions} /><InventoryTable inventory={inventory} /></div>
-                                </div>
-                            )}
-                            {view === 'INVENTORY' && <InventoryTable inventory={inventory} />}
-                            {view === 'HISTORY' && <HistoryLog transactions={transactions} />}
-                            {view === 'SETTINGS' && <Settings onSync={loadData} />}
+
+                    <main className="flex-1 h-[calc(100vh-64px)] md:h-screen overflow-hidden flex flex-col">
+                        <div className="flex-1 overflow-y-auto p-4 md:p-8 relative">
+                            {notification && <div className="fixed top-6 right-6 z-50 animate-fade-in"><div className="bg-emerald-600 text-white px-6 py-3 rounded-lg shadow-lg flex items-center gap-2"><CheckCircle className="w-5 h-5" /><span className="font-medium">{notification}</span></div></div>}
+                            
+                            <InventoryModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} onSave={handleSaveItem} initialData={editingItem} />
+
+                            <div className="max-w-6xl mx-auto pb-10">
+                                {view === 'DASHBOARD' && (
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                                        <div className="lg:col-span-1"><div className="sticky top-0"><h2 className="font-bold text-slate-800 text-lg mb-4">Quick Checkout</h2><CheckoutForm inventory={inventory} onSubmit={handleTransaction} /></div></div>
+                                        <div className="lg:col-span-2 space-y-8"><Dashboard inventory={inventory} transactions={transactions} /><div><div className="flex justify-between items-center mb-4"><h3 className="font-bold text-slate-800 text-lg">Recent Inventory</h3><button onClick={() => setView('INVENTORY')} className="text-sm text-safety-600 font-medium">View All</button></div><InventoryTable inventory={inventory.slice(0, 5)} /></div></div>
+                                    </div>
+                                )}
+                                {view === 'INVENTORY' && (
+                                    <div className="space-y-6">
+                                        <div className="flex justify-between items-center"><h2 className="text-2xl font-bold text-slate-800">Inventory Management</h2><button onClick={() => { setEditingItem(null); setIsModalOpen(true); }} className="bg-safety-600 text-white px-4 py-2 rounded-lg font-bold hover:bg-safety-700 flex items-center gap-2"><Plus className="w-5 h-5" /> Add New Item</button></div>
+                                        <InventoryTable inventory={inventory} onEdit={(item) => { setEditingItem(item); setIsModalOpen(true); }} onDelete={handleDeleteItem} />
+                                    </div>
+                                )}
+                                {view === 'HISTORY' && <div className="max-w-4xl mx-auto"><HistoryLog transactions={transactions} /></div>}
+                                {view === 'SETTINGS' && <SettingsPage onSync={loadData} />}
+                            </div>
                         </div>
                     </main>
+
+                    {showQr && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowQr(false)}>
+                            <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full text-center relative" onClick={e => e.stopPropagation()}>
+                                <button onClick={() => setShowQr(false)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><X className="w-5 h-5" /></button>
+                                <h3 className="font-bold text-lg text-slate-800 mb-2">Scan for Mobile Access</h3>
+                                <div className="flex justify-center mb-6"><img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} alt="QR Code" className="border p-2 rounded-lg" /></div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
 
-        const root = ReactDOM.createRoot(document.getElementById('root'));
+        const root = createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
