@@ -5,148 +5,136 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gold Coin Bekasi PPE Database</title>
     
-    <!-- 1. ERROR HANDLER -->
+    <!-- 1. Error Handler (Must be first) -->
     <script>
         window.onerror = function(msg, url, line, col, error) {
-            const root = document.getElementById('root');
-            if(root) {
-                root.innerHTML = `
-                <div style="padding: 40px; text-align: center; font-family: sans-serif; color: #991b1b; background: #fef2f2; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center;">
-                    <h1 style="font-size: 24px; font-weight: bold; margin-bottom: 10px;">⚠️ Application Error</h1>
-                    <p style="margin-bottom: 20px;">The app failed to load. Please try clearing your cache or resetting data.</p>
-                    <div style="background: white; padding: 15px; border-radius: 8px; border: 1px solid #f87171; display: inline-block; text-align: left; margin-bottom: 20px;">
-                        <strong>Technical Details:</strong><br/>
-                        ${msg}<br/>
-                        <small>Line: ${line}</small>
-                    </div>
-                    <button onclick="localStorage.clear(); window.location.reload()" style="background: #dc2626; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: bold;">
-                        Reset App Data
-                    </button>
-                </div>`;
-            }
+            document.getElementById('root').innerHTML = `
+                <div style="color: #b91c1c; background: #fef2f2; padding: 20px; font-family: sans-serif; height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;">
+                    <h1 style="font-size: 24px; margin-bottom: 10px;">⚠️ App Error</h1>
+                    <p><strong>${msg}</strong></p>
+                    <p>Line: ${line}</p>
+                    <button onclick="localStorage.clear(); window.location.reload()" style="margin-top:20px; background: #dc2626; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Reset Data</button>
+                </div>
+            `;
+            return false;
         };
     </script>
 
-    <!-- 2. STYLES -->
+    <!-- 2. Libraries (Standard CDNs) -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- 3. Styles -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+    
+    <!-- 4. Tailwind Config -->
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
                         safety: { 50: '#fff7ed', 100: '#ffedd5', 500: '#f97316', 600: '#ea580c', 700: '#c2410c' }
-                    },
-                    animation: { 'fade-in': 'fadeIn 0.3s ease-out forwards' },
-                    keyframes: { fadeIn: { '0%': { opacity: '0', transform: 'translateY(10px)' }, '100%': { opacity: '1', transform: 'translateY(0)' } } }
+                    }
                 }
             }
         }
     </script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-        /* Custom Scrollbar */
-        ::-webkit-scrollbar { width: 8px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-    </style>
-
-    <!-- 3. DEPENDENCIES -->
-    <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "react": "https://esm.sh/react@18.2.0",
-    "react-dom/client": "https://esm.sh/react-dom@18.2.0/client",
-    "@google/genai": "https://esm.sh/@google/genai@0.1.1",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "recharts": "https://aistudiocdn.com/recharts@^3.5.0",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0"
   }
 }
 </script>
-    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 </head>
-<body class="bg-slate-50 text-slate-800 antialiased">
-    <div id="root">
-        <!-- Initial Loading State -->
-        <div class="h-screen flex items-center justify-center flex-col gap-4 text-slate-400">
-            <div class="w-12 h-12 border-4 border-safety-500 border-t-transparent rounded-full animate-spin"></div>
-            <p class="text-sm font-medium animate-pulse">Loading Gold Coin Bekasi System...</p>
-        </div>
-    </div>
+<body>
+    <div id="root"></div>
 
-    <!-- 4. APP LOGIC -->
-    <script type="text/babel" data-type="module">
-        import React, { useState, useEffect } from 'react';
-        import { createRoot } from 'react-dom/client';
-        import { GoogleGenAI } from '@google/genai';
+    <!-- 5. Application Logic -->
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
 
-        // --- ICONS (Internal SVGs to prevent loading errors) ---
-        const Icon = ({ path, className }) => (
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-                {path}
-            </svg>
-        );
+        // --- ICONS (SVG) ---
         const Icons = {
-            Dashboard: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
-            List: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
-            History: <path d="M3 3v5h5M3.05 13A9 9 0 1 0 6 5.3L3 8" />,
-            Settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />,
-            Shield: <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />,
-            Qr: <path d="M3 7V5a2 2 0 0 1 2-2h2m-4 4h4v4H3v-4zm0 10v2a2 2 0 0 0 2 2h2m-4-4h4v4H3v-4zm14 2v2a2 2 0 0 1-2 2h-2m4-4h4v4h-4v-4zm-4-14V5a2 2 0 0 1 2-2h2m-4 4h4v4h-4v-4zm6 6h2v2h-2z" />,
-            LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
-            Plus: <path d="M12 5v14M5 12h14" />,
-            Edit: <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />,
-            Trash: <path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />,
-            Check: <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14M22 4 12 14.01l-3-3" />,
-            Alert: <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0zM12 9v4M12 17h.01" />,
-            Mic: <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3zM19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8" />,
-            Send: <path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z" />,
-            Brain: <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z" />
+            Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3"/><rect width="7" height="5" x="14" y="3"/><rect width="7" height="9" x="14" y="12"/><rect width="7" height="5" x="3" y="16"/></svg>,
+            List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>,
+            History: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
+            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+            Shield: () => <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+            Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>,
+            Qr: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>
         };
 
-        // --- DATA & CONSTANTS ---
+        // --- CONSTANTS ---
+        const STORAGE_KEYS = { INVENTORY: 'ppe_inv', TRANSACTIONS: 'ppe_tx', SETTINGS: 'ppe_set' };
         const INITIAL_INVENTORY = [
             { id: '1', name: 'Safety Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10 },
             { id: '2', name: 'Safety Helmet (Yellow)', category: 'Head', quantity: 12, unit: 'pcs', threshold: 10 },
             { id: '3', name: 'High-Vis Vest (L)', category: 'Apparel', quantity: 8, unit: 'pcs', threshold: 15 },
-            { id: '4', name: 'High-Vis Vest (XL)', category: 'Apparel', quantity: 30, unit: 'pcs', threshold: 15 },
             { id: '5', name: 'Cut-Resistant Gloves', category: 'Hand', quantity: 120, unit: 'pairs', threshold: 50 },
             { id: '6', name: 'Safety Goggles', category: 'Eye', quantity: 35, unit: 'pcs', threshold: 20 },
-            { id: '7', name: 'Ear Plugs (Dispenser)', category: 'Hearing', quantity: 5, unit: 'box', threshold: 2 },
             { id: '8', name: 'Steel Toe Boots (Sz 10)', category: 'Foot', quantity: 4, unit: 'pairs', threshold: 5 },
         ];
-        const STORAGE_KEYS = { INVENTORY: 'gc_inv', TRANSACTIONS: 'gc_tx', SETTINGS: 'gc_set' };
-        const SCRIPT_TEMPLATE = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,6).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold]));t.clear();t.appendRow(["ID","Emp","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,5).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}`;
 
         // --- SERVICES ---
         const safeParse = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
         const saveData = (key, data) => localStorage.setItem(key, JSON.stringify(data));
-        
+
         const syncSheets = async (url, inv, tx) => {
             if(!url) return;
             try { await fetch(url, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: tx }) }); } catch(e) { console.log('Sync error', e); }
         };
 
-        const runAi = async (apiKey, prompt, inventory) => {
-            if(!apiKey) throw new Error("Missing API Key");
-            const ai = new GoogleGenAI({ apiKey });
-            const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
-            const invList = inventory.map(i => `- ${i.name} (ID: ${i.id})`).join("\n");
-            const sys = `Extract to JSON: { "employeeName": string, "items": [{ "itemNameTarget": string, "quantity": number }] }. Map fuzzy names to: \n${invList}`;
-            const res = await model.generateContent({ contents: [{ parts: [{ text: prompt }] }], systemInstruction: { parts: [{ text: sys }] }, generationConfig: { responseMimeType: "application/json" } });
-            return JSON.parse(res.response.text());
+        // Use REST API for Gemini to avoid SDK dependency issues in browser
+        const callGemini = async (apiKey, prompt, systemInstruction) => {
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }],
+                    system_instruction: { parts: [{ text: systemInstruction }] },
+                    generationConfig: { response_mime_type: "application/json" }
+                })
+            });
+            return await response.json();
         };
 
         // --- COMPONENTS ---
-        
-        // 1. SIMPLE BAR CHART (No External Libs)
+
+        const Modal = ({ isOpen, onClose, title, children }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md p-6 animate-fade-in" onClick={e => e.stopPropagation()}>
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="font-bold text-lg">{title}</h3>
+                            <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+                        </div>
+                        {children}
+                    </div>
+                </div>
+            );
+        };
+
         const SimpleChart = ({ data }) => {
             const max = Math.max(...data.map(i=>i.quantity), 1);
             return (
-                <div className="h-64 flex items-end gap-2 w-full pt-8 pb-2 overflow-x-auto">
+                <div className="h-48 flex items-end gap-2 w-full pt-8 pb-2 overflow-x-auto">
                     {data.map(i => {
                         const h = (i.quantity / max) * 100;
                         const isLow = i.quantity <= i.threshold;
@@ -164,122 +152,102 @@
             );
         };
 
-        // 2. MODAL
-        const Modal = ({ isOpen, onClose, title, children }) => {
-            if(!isOpen) return null;
-            return (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fade-in" onClick={onClose}>
-                    <div className="bg-white rounded-xl shadow-2xl w-full max-w-md m-4 p-6" onClick={e=>e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="font-bold text-lg">{title}</h3>
-                            <button onClick={onClose}><Icon path={Icons.Plus} className="rotate-45 text-slate-400 w-6 h-6"/></button>
-                        </div>
-                        {children}
-                    </div>
-                </div>
-            );
-        };
-
-        // 3. MAIN APP
         const App = () => {
-            // State
             const [view, setView] = useState('DASHBOARD');
-            const [inv, setInv] = useState(INITIAL_INVENTORY);
-            const [tx, setTx] = useState([]);
+            const [inventory, setInventory] = useState([]);
+            const [transactions, setTransactions] = useState([]);
             const [settings, setSettings] = useState({ apiKey: '', sheetUrl: '' });
-            const [notif, setNotif] = useState(null);
+            const [notify, setNotify] = useState(null);
             
-            // Modal States
-            const [editItem, setEditItem] = useState(null);
+            // Edit & QR States
             const [modalOpen, setModalOpen] = useState(false);
+            const [editItem, setEditItem] = useState(null);
             const [qrOpen, setQrOpen] = useState(false);
-            
+
             // Checkout States
             const [coTab, setCoTab] = useState('manual');
             const [coData, setCoData] = useState({ name: '', item: '', qty: 1 });
             const [aiPrompt, setAiPrompt] = useState('');
-            const [aiLoad, setAiLoad] = useState(false);
+            const [aiLoading, setAiLoading] = useState(false);
 
-            // Init
             useEffect(() => {
-                setInv(safeParse(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY));
-                setTx(safeParse(STORAGE_KEYS.TRANSACTIONS, []));
+                setInventory(safeParse(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY));
+                setTransactions(safeParse(STORAGE_KEYS.TRANSACTIONS, []));
                 setSettings(safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' }));
             }, []);
 
-            // Actions
-            const notify = (msg) => { setNotif(msg); setTimeout(() => setNotif(null), 3000); };
-            
-            const updateStock = (newInv, newTxItem) => {
-                setInv(newInv); saveData(STORAGE_KEYS.INVENTORY, newInv);
-                if(newTxItem) {
-                    const newTxHistory = [newTxItem, ...tx];
-                    setTx(newTxHistory); saveData(STORAGE_KEYS.TRANSACTIONS, newTxHistory);
-                    syncSheets(settings.sheetUrl, newInv, newTxHistory);
+            const showNotif = (msg) => { setNotify(msg); setTimeout(() => setNotify(null), 3000); };
+
+            const updateStock = (newInv, newTx) => {
+                setInventory(newInv); saveData(STORAGE_KEYS.INVENTORY, newInv);
+                if (newTx) {
+                    const txs = [newTx, ...transactions];
+                    setTransactions(txs); saveData(STORAGE_KEYS.TRANSACTIONS, txs);
+                    syncSheets(settings.sheetUrl, newInv, txs);
                 } else {
-                    syncSheets(settings.sheetUrl, newInv, tx);
+                    syncSheets(settings.sheetUrl, newInv, transactions);
                 }
             };
 
             const handleCheckout = (name, itemId, qty, method) => {
-                const item = inv.find(i => i.id === itemId);
-                if(!item) return;
-                
-                const newInv = inv.map(i => i.id === itemId ? { ...i, quantity: Math.max(0, i.quantity - qty) } : i);
-                const newTx = { id: Date.now(), employeeName: name, timestamp: new Date().toISOString(), method, items: [{ itemName: item.name, quantity: qty }] };
-                
+                const item = inventory.find(i => i.id === itemId);
+                if (!item) return;
+                const newInv = inventory.map(i => i.id === itemId ? { ...i, quantity: Math.max(0, i.quantity - qty) } : i);
+                const newTx = { id: Date.now(), employeeName: name, items: [{ itemName: item.name, quantity: qty }], timestamp: new Date().toISOString(), method };
                 updateStock(newInv, newTx);
-                notify('Checkout Successful!');
-                setCoData({ name: '', item: '', qty: 1 });
+                showNotif('Checkout Success!');
+                setCoData({ ...coData, item: '', qty: 1 });
             };
 
-            const handleAi = async (e) => {
+            const handleAiCheckout = async (e) => {
                 e.preventDefault();
-                setAiLoad(true);
+                if(!settings.apiKey) return alert("Please set API Key in Settings first.");
+                setAiLoading(true);
                 try {
-                    const data = await runAi(settings.apiKey, aiPrompt, inv);
-                    const items = [];
+                    const invList = inventory.map(i => `- ${i.name}`).join("\n");
+                    const sys = `Extract JSON: { "employeeName": "string", "items": [{"itemNameTarget": "exact string from list", "quantity": number}] }. Inventory: \n${invList}`;
+                    const res = await callGemini(settings.apiKey, aiPrompt, sys);
+                    const data = JSON.parse(res.candidates[0].content.parts[0].text);
+                    
                     data.items.forEach(req => {
-                        const found = inv.find(i => i.name === req.itemNameTarget);
-                        if(found) handleCheckout(data.employeeName||'Unknown', found.id, req.quantity, 'AI');
+                        const found = inventory.find(i => i.name === req.itemNameTarget);
+                        if (found) handleCheckout(data.employeeName || 'Unknown', found.id, req.quantity, 'AI');
                     });
                     setAiPrompt('');
-                } catch(e) { alert(e.message); }
-                setAiLoad(false);
+                } catch (e) { alert("AI Error: " + e.message); }
+                setAiLoading(false);
             };
 
             const saveItem = (e) => {
                 e.preventDefault();
-                const formData = new FormData(e.target);
-                const item = {
+                const fd = new FormData(e.target);
+                const newItem = {
                     id: editItem ? editItem.id : Date.now().toString(),
-                    name: formData.get('name'),
-                    category: formData.get('category'),
-                    quantity: Number(formData.get('quantity')),
-                    unit: formData.get('unit'),
-                    threshold: Number(formData.get('threshold'))
+                    name: fd.get('name'),
+                    category: fd.get('category'),
+                    quantity: Number(fd.get('quantity')),
+                    unit: fd.get('unit'),
+                    threshold: Number(fd.get('threshold'))
                 };
-                
-                let newInv;
-                if(editItem) newInv = inv.map(i => i.id === item.id ? item : i);
-                else newInv = [...inv, item];
-                
+                const newInv = editItem 
+                    ? inventory.map(i => i.id === newItem.id ? newItem : i)
+                    : [...inventory, newItem];
                 updateStock(newInv);
                 setModalOpen(false);
-                notify('Inventory Updated');
+                showNotif('Item Saved');
             };
 
             const deleteItem = (id) => {
-                if(!confirm('Delete?')) return;
-                updateStock(inv.filter(i => i.id !== id));
-                notify('Item Deleted');
+                if(!confirm("Delete this item?")) return;
+                updateStock(inventory.filter(i => i.id !== id));
+                showNotif('Item Deleted');
             };
 
-            // Views
+            // VIEWS
             const Dashboard = () => (
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
                     <div className="lg:col-span-1 bg-white p-6 rounded-xl shadow-sm border h-fit">
-                        <h2 className="font-bold mb-4 flex gap-2"><Icon path={Icons.List} className="w-5 h-5"/> Quick Checkout</h2>
+                        <h2 className="font-bold mb-4">Quick Checkout</h2>
                         <div className="flex border-b mb-4">
                             <button onClick={()=>setCoTab('manual')} className={`flex-1 py-2 text-sm font-bold ${coTab==='manual'?'text-safety-600 border-b-2 border-safety-600':''}`}>Manual</button>
                             <button onClick={()=>setCoTab('ai')} className={`flex-1 py-2 text-sm font-bold ${coTab==='ai'?'text-indigo-600 border-b-2 border-indigo-600':''}`}>AI Voice</button>
@@ -289,60 +257,56 @@
                                 <input className="w-full p-2 border rounded" placeholder="Employee Name" required value={coData.name} onChange={e=>setCoData({...coData, name: e.target.value})}/>
                                 <select className="w-full p-2 border rounded" required value={coData.item} onChange={e=>setCoData({...coData, item: e.target.value})}>
                                     <option value="">Select Item...</option>
-                                    {inv.map(i=><option key={i.id} value={i.id} disabled={i.quantity===0}>{i.name} ({i.quantity})</option>)}
+                                    {inventory.map(i=><option key={i.id} value={i.id} disabled={i.quantity===0}>{i.name} ({i.quantity})</option>)}
                                 </select>
                                 <input type="number" min="1" className="w-full p-2 border rounded" required value={coData.qty} onChange={e=>setCoData({...coData, qty: Number(e.target.value)||1})}/>
                                 <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Submit</button>
                             </form>
                         ) : (
-                            <form onSubmit={handleAi} className="space-y-3">
+                            <form onSubmit={handleAiCheckout} className="space-y-3">
                                 <p className="text-xs text-indigo-600 bg-indigo-50 p-2 rounded">Try: "Mike took 2 helmets"</p>
                                 <textarea className="w-full p-2 border rounded h-24" placeholder="Type here..." required value={aiPrompt} onChange={e=>setAiPrompt(e.target.value)}></textarea>
-                                <button disabled={aiLoad} className="w-full bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">{aiLoad?'Processing...':'Process with AI'}</button>
+                                <button disabled={aiLoading} className="w-full bg-indigo-600 text-white py-2 rounded font-bold hover:bg-indigo-700 disabled:opacity-50">{aiLoading?'Processing...':'Process'}</button>
                             </form>
                         )}
                     </div>
                     <div className="lg:col-span-2 space-y-6">
-                        <div className="grid grid-cols-3 gap-4">
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="bg-white p-4 rounded shadow border">
                                 <p className="text-xs font-bold text-slate-500 uppercase">Total Items</p>
-                                <p className="text-2xl font-bold">{inv.reduce((a,b)=>a+b.quantity,0)}</p>
+                                <p className="text-2xl font-bold">{inventory.reduce((a,b)=>a+b.quantity,0)}</p>
                             </div>
                             <div className="bg-white p-4 rounded shadow border">
                                 <p className="text-xs font-bold text-slate-500 uppercase">Low Stock</p>
-                                <p className={`text-2xl font-bold ${inv.some(i=>i.quantity<=i.threshold)?'text-red-600':'text-green-600'}`}>{inv.filter(i=>i.quantity<=i.threshold).length}</p>
-                            </div>
-                            <div className="bg-gradient-to-br from-indigo-600 to-indigo-800 text-white p-4 rounded shadow">
-                                <p className="text-xs font-bold uppercase flex gap-1"><Icon path={Icons.Brain} className="w-3 h-3"/> System Status</p>
-                                <p className="text-sm mt-1 opacity-90">Ready to process requests.</p>
+                                <p className={`text-2xl font-bold ${inventory.some(i=>i.quantity<=i.threshold)?'text-red-600':'text-green-600'}`}>{inventory.filter(i=>i.quantity<=i.threshold).length}</p>
                             </div>
                         </div>
                         <div className="bg-white p-6 rounded shadow border">
                             <h3 className="font-bold mb-4">Stock Overview</h3>
-                            <SimpleChart data={inv}/>
+                            <SimpleChart data={inventory}/>
                         </div>
                     </div>
                 </div>
             );
 
-            const Inventory = () => (
+            const InventoryView = () => (
                 <div className="space-y-4 animate-fade-in">
                     <div className="flex justify-between items-center">
                         <h2 className="text-xl font-bold">Inventory List</h2>
-                        <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex gap-2"><Icon path={Icons.Plus} className="w-5 h-5"/> Add Item</button>
+                        <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex gap-2 items-center"><Icons.Plus/> Add Item</button>
                     </div>
                     <div className="bg-white rounded border overflow-x-auto">
                         <table className="w-full text-sm text-left">
                             <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500"><tr><th className="p-4">Item</th><th className="p-4">Qty</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead>
                             <tbody className="divide-y">
-                                {inv.map(i=>(
+                                {inventory.map(i=>(
                                     <tr key={i.id} className="hover:bg-slate-50">
                                         <td className="p-4"><div className="font-bold">{i.name}</div><div className="text-xs text-slate-400">{i.category}</div></td>
                                         <td className="p-4">{i.quantity} {i.unit}</td>
                                         <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${i.quantity<=i.threshold?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>{i.quantity<=i.threshold?'Low':'OK'}</span></td>
                                         <td className="p-4 text-right flex justify-end gap-2">
-                                            <button onClick={()=>{setEditItem(i); setModalOpen(true);}} className="text-slate-400 hover:text-indigo-600"><Icon path={Icons.Edit} className="w-4 h-4"/></button>
-                                            <button onClick={()=>deleteItem(i.id)} className="text-slate-400 hover:text-red-600"><Icon path={Icons.Trash} className="w-4 h-4"/></button>
+                                            <button onClick={()=>{setEditItem(i); setModalOpen(true);}} className="text-slate-400 hover:text-indigo-600"><Icons.Edit/></button>
+                                            <button onClick={()=>deleteItem(i.id)} className="text-slate-400 hover:text-red-600"><Icons.Trash/></button>
                                         </td>
                                     </tr>
                                 ))}
@@ -352,45 +316,35 @@
                 </div>
             );
 
-            const HistoryView = () => (
-                <div className="space-y-4 animate-fade-in">
-                    <h2 className="text-xl font-bold">History Log</h2>
-                    {tx.length === 0 && <p className="text-slate-500">No transactions found.</p>}
-                    {tx.map((t, idx) => (
-                        <div key={idx} className="bg-white p-4 rounded border flex justify-between items-center">
-                            <div>
-                                <div className="font-bold">{t.employeeName} <span className="text-xs border px-1 rounded text-slate-500">{t.method}</span></div>
-                                <div className="text-xs text-slate-400">{new Date(t.timestamp).toLocaleString()}</div>
-                            </div>
-                            <div className="text-right">
-                                {t.items.map((i, k)=><div key={k} className="text-sm">{i.itemName} <span className="text-red-600 font-bold">-{i.quantity}</span></div>)}
-                            </div>
-                        </div>
-                    ))}
-                </div>
-            );
-
             const SettingsView = () => (
                 <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
                     <div className="bg-white p-6 rounded border">
-                        <h3 className="font-bold text-lg mb-4">Gemini AI Key</h3>
-                        <input type="password" className="w-full p-2 border rounded mb-2" value={settings.apiKey} onChange={e=>setSettings({...settings, apiKey:e.target.value})} placeholder="Paste Key Here"/>
-                        <p className="text-xs text-slate-500">Required for AI voice features.</p>
+                        <h3 className="font-bold text-lg mb-4">API & Sync</h3>
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Gemini API Key</label>
+                        <input type="password" className="w-full p-2 border rounded mb-4" value={settings.apiKey} onChange={e=>setSettings({...settings, apiKey:e.target.value})}/>
+                        
+                        <label className="block text-xs font-bold text-slate-500 mb-1">Google Sheet URL</label>
+                        <input className="w-full p-2 border rounded mb-4" value={settings.sheetUrl} onChange={e=>setSettings({...settings, sheetUrl:e.target.value})}/>
+                        
+                        <div className="bg-slate-50 p-3 rounded text-xs mb-4">
+                            <strong>Setup Guide:</strong>
+                            <ol className="list-decimal pl-4 mt-1 space-y-1">
+                                <li>Create Google Sheet > Extensions > Apps Script.</li>
+                                <li>Paste code: <code className="bg-slate-200 px-1">function doPost(e)...</code> (See docs).</li>
+                                <li>Deploy > New Deployment > Web App > Anyone.</li>
+                                <li>Paste URL above.</li>
+                            </ol>
+                        </div>
+                        <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold w-full">Save Settings</button>
                     </div>
                     <div className="bg-white p-6 rounded border">
-                        <h3 className="font-bold text-lg mb-4">Google Sheets Sync</h3>
-                        <textarea readOnly className="w-full h-20 bg-slate-900 text-slate-300 text-xs p-2 rounded mb-2" value={SCRIPT_TEMPLATE}></textarea>
-                        <input className="w-full p-2 border rounded mb-4" value={settings.sheetUrl} onChange={e=>setSettings({...settings, sheetUrl:e.target.value})} placeholder="Paste Web App URL"/>
-                        <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); notify('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold w-full">Save Settings</button>
-                    </div>
-                    <div className="bg-white p-6 rounded border">
-                        <h3 className="font-bold mb-4">Data Management</h3>
+                        <h3 className="font-bold mb-4">Data Backup</h3>
                         <div className="flex gap-4">
-                            <button onClick={()=>{const b=new Blob([JSON.stringify({inv,tx})],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();}} className="border px-4 py-2 rounded flex-1 hover:bg-slate-50">Download Backup</button>
+                            <button onClick={()=>{const b=new Blob([JSON.stringify({inventory,transactions})],{type:'application/json'}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download='backup.json'; a.click();}} className="border px-4 py-2 rounded flex-1 hover:bg-slate-50">Download</button>
                             <label className="border px-4 py-2 rounded flex-1 hover:bg-slate-50 text-center cursor-pointer">
                                 Restore <input type="file" className="hidden" accept=".json" onChange={e=>{
                                     const f=e.target.files[0]; if(!f)return;
-                                    const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setInv(d.inv); setTx(d.tx); saveData(STORAGE_KEYS.INVENTORY, d.inv); saveData(STORAGE_KEYS.TRANSACTIONS, d.tx); notify('Restored');}catch{alert('Error');}}; r.readAsText(f);
+                                    const r=new FileReader(); r.onload=ev=>{try{const d=JSON.parse(ev.target.result); setInventory(d.inventory); setTransactions(d.transactions); saveData(STORAGE_KEYS.INVENTORY, d.inventory); saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions); showNotif('Restored');}catch{alert('Error');}}; r.readAsText(f);
                                 }}/>
                             </label>
                         </div>
@@ -400,47 +354,58 @@
 
             return (
                 <div className="min-h-screen flex flex-col md:flex-row bg-slate-50 text-slate-800">
-                    {/* Sidebar */}
-                    <aside className="bg-slate-900 text-white w-full md:w-64 p-4 flex flex-col shrink-0 shadow-xl z-10">
+                    <aside className="bg-slate-900 text-white w-full md:w-64 p-4 flex flex-col shrink-0">
                         <div className="mb-8 p-2">
-                            <div className="flex items-center gap-2 font-bold text-lg text-safety-500"><Icon path={Icons.Shield} className="w-6 h-6"/> Gold Coin Bekasi</div>
+                            <div className="flex items-center gap-2 font-bold text-lg text-safety-500"><Icons.Shield/> Gold Coin Bekasi</div>
                             <div className="text-xs text-slate-500 pl-8">PPE Database</div>
                         </div>
                         <nav className="flex-1 space-y-2">
-                            {['DASHBOARD','INVENTORY','HISTORY','SETTINGS'].map(v => (
-                                <button key={v} onClick={()=>setView(v)} className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm font-medium ${view===v?'bg-safety-600':'text-slate-400 hover:bg-slate-800'}`}>
-                                    <Icon path={Icons[v.charAt(0)+v.slice(1).toLowerCase()]} className="w-4 h-4"/> {v.charAt(0)+v.slice(1).toLowerCase()}
+                            {[
+                                {id:'DASHBOARD', icon: Icons.Dashboard},
+                                {id:'INVENTORY', icon: Icons.List},
+                                {id:'HISTORY', icon: Icons.History},
+                                {id:'SETTINGS', icon: Icons.Settings}
+                            ].map(item => (
+                                <button key={item.id} onClick={()=>setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm font-medium ${view===item.id?'bg-safety-600':'text-slate-400 hover:bg-slate-800'}`}>
+                                    <item.icon /> {item.id.charAt(0)+item.id.slice(1).toLowerCase()}
                                 </button>
                             ))}
                         </nav>
                         <div className="pt-4 border-t border-slate-800 space-y-2">
-                            <button onClick={()=>setQrOpen(true)} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><Icon path={Icons.Qr} className="w-3 h-3"/> Mobile Access</button>
-                            <button onClick={()=>confirm('Reset?')&&(localStorage.clear()||location.reload())} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:text-red-400"><Icon path={Icons.LogOut} className="w-3 h-3"/> Reset App</button>
+                            <button onClick={()=>setQrOpen(true)} className="flex gap-2 text-xs text-slate-400 w-full px-4 py-2 hover:bg-slate-800 rounded"><Icons.Qr/> Mobile Access</button>
                         </div>
                     </aside>
 
-                    {/* Main */}
                     <main className="flex-1 p-4 md:p-8 overflow-y-auto">
                         <div className="max-w-6xl mx-auto">
                             {view === 'DASHBOARD' && <Dashboard />}
-                            {view === 'INVENTORY' && <Inventory />}
-                            {view === 'HISTORY' && <HistoryView />}
+                            {view === 'INVENTORY' && <InventoryView />}
+                            {view === 'HISTORY' && (
+                                <div className="space-y-4 animate-fade-in">
+                                    <h2 className="text-xl font-bold">History Log</h2>
+                                    {transactions.map((t,i)=>(
+                                        <div key={i} className="bg-white p-4 rounded border flex justify-between">
+                                            <div><div className="font-bold">{t.employeeName}</div><div className="text-xs text-slate-400">{new Date(t.timestamp).toLocaleString()}</div></div>
+                                            <div className="text-right">{t.items.map((x,k)=><div key={k}>{x.itemName} <span className="font-bold text-red-600">-{x.quantity}</span></div>)}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
                             {view === 'SETTINGS' && <SettingsView />}
                         </div>
                     </main>
-
-                    {/* Toast */}
-                    {notif && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg animate-bounce flex gap-2 z-50"><Icon path={Icons.Check} className="w-5 h-5"/> {notif}</div>}
                     
-                    {/* QR Modal */}
+                    {/* Floating Toast */}
+                    {notify && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg animate-bounce z-50">{notify}</div>}
+                    
+                    {/* Modals */}
                     <Modal isOpen={qrOpen} onClose={()=>setQrOpen(false)} title="Mobile Access">
                         <div className="text-center">
                             <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(window.location.href)}`} className="mx-auto border p-2 rounded mb-4"/>
-                            <p className="text-sm text-slate-500">Scan to open on mobile.</p>
+                            <p className="text-sm text-slate-500">Scan to open on your phone.</p>
                         </div>
                     </Modal>
 
-                    {/* Inventory Modal */}
                     <Modal isOpen={modalOpen} onClose={()=>setModalOpen(false)} title={editItem ? 'Edit Item' : 'Add Item'}>
                         <form onSubmit={saveItem} className="space-y-4">
                             <div><label className="text-xs font-bold text-slate-500">NAME</label><input name="name" className="w-full p-2 border rounded" required defaultValue={editItem?.name}/></div>
@@ -459,7 +424,7 @@
             );
         };
 
-        const root = createRoot(document.getElementById('root'));
+        const root = ReactDOM.createRoot(document.getElementById('root'));
         root.render(<App />);
     </script>
 </body>
