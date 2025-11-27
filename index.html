@@ -99,6 +99,15 @@
             try { await fetch(url, { method: 'POST', mode: 'no-cors', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: tx }) }); } catch(e) { console.log('Sync error', e); }
         };
 
+        const fetchSheets = async (url) => {
+            if(!url) return null;
+            try {
+                const res = await fetch(`${url}?action=GET_DATA`);
+                const data = await res.json();
+                return data.status === 'success' ? data : null;
+            } catch(e) { return null; }
+        };
+
         const callGemini = async (apiKey, prompt, systemInstruction) => {
             const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
             const response = await fetch(url, {
@@ -223,7 +232,7 @@
             </div>
         );
 
-        const SettingsView = ({ settings, setSettings, saveData, showNotif, setInventory, setTransactions, inventory, transactions }) => (
+        const SettingsView = ({ settings, setSettings, saveData, showNotif, setInventory, setTransactions, inventory, transactions, doCloudSync }) => (
             <div className="max-w-xl mx-auto space-y-6 animate-fade-in">
                 <div className="bg-white p-6 rounded border">
                     <h3 className="font-bold text-lg mb-4">API & Sync</h3>
@@ -242,7 +251,10 @@
                             <li>Paste URL above.</li>
                         </ol>
                     </div>
-                    <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold w-full">Save Settings</button>
+                    <div className="flex gap-2">
+                         <button onClick={()=>{saveData(STORAGE_KEYS.SETTINGS, settings); showNotif('Settings Saved');}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex-1">Save Settings</button>
+                         <button onClick={doCloudSync} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold flex-1">Force Sync</button>
+                    </div>
                 </div>
                 <div className="bg-white p-6 rounded border">
                     <h3 className="font-bold mb-4">Data Backup</h3>
@@ -290,10 +302,37 @@
             const [aiPrompt, setAiPrompt] = useState('');
             const [aiLoading, setAiLoading] = useState(false);
 
+            const doCloudSync = async () => {
+                if(!settings.sheetUrl) return;
+                showNotif('Syncing...');
+                const cloud = await fetchSheets(settings.sheetUrl);
+                if(cloud && cloud.inventory) {
+                    setInventory(cloud.inventory);
+                    setTransactions(cloud.transactions);
+                    saveData(STORAGE_KEYS.INVENTORY, cloud.inventory);
+                    saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
+                    showNotif('Sync Complete!');
+                } else {
+                    showNotif('Sync Failed (Check URL)');
+                }
+            };
+
             useEffect(() => {
+                const s = safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' });
+                setSettings(s);
                 setInventory(safeParse(STORAGE_KEYS.INVENTORY, INITIAL_INVENTORY));
                 setTransactions(safeParse(STORAGE_KEYS.TRANSACTIONS, []));
-                setSettings(safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' }));
+                // Initial Sync attempt
+                if(s.sheetUrl) {
+                     fetchSheets(s.sheetUrl).then(d => {
+                         if(d && d.inventory) {
+                             setInventory(d.inventory);
+                             setTransactions(d.transactions);
+                             saveData(STORAGE_KEYS.INVENTORY, d.inventory);
+                             saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions);
+                         }
+                     });
+                }
             }, []);
 
             const showNotif = (msg) => { setNotify(msg); setTimeout(() => setNotify(null), 3000); };
@@ -415,6 +454,7 @@
                                     saveData={saveData} showNotif={showNotif}
                                     setInventory={setInventory} setTransactions={setTransactions}
                                     inventory={inventory} transactions={transactions}
+                                    doCloudSync={doCloudSync}
                                 />
                             }
                         </div>
