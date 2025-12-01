@@ -69,6 +69,7 @@
             Qr: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="5" height="5" x="3" y="3" rx="1"/><rect width="5" height="5" x="16" y="3" rx="1"/><rect width="5" height="5" x="3" y="16" rx="1"/><path d="M21 16h-3a2 2 0 0 0-2 2v3"/><path d="M21 21v.01"/><path d="M12 7v3a2 2 0 0 1-2 2H7"/><path d="M3 12h.01"/><path d="M12 3h.01"/><path d="M12 16v.01"/><path d="M16 12h1"/><path d="M21 12v.01"/><path d="M12 21v-1"/></svg>,
             Refresh: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M16 16l-2.74 2.74"/><path d="M21 21v-5h-5"/></svg>,
             Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>,
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></svg>,
             CloudUp: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"/><polyline points="12 13 12 21"/><polyline points="9 16 12 13 15 16"/></svg>,
             Excel: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>,
             Camera: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>,
@@ -458,28 +459,30 @@
             const [copied, setCopied] = useState(false);
             const [showGuide, setShowGuide] = useState(false);
             const [importText, setImportText] = useState('');
+            const fileInputRef = useRef(null);
+            const [importMode, setImportMode] = useState(null); // 'INV' or 'HIST'
+
             // UPDATED GOOGLE SCRIPT CODE TO INCLUDE SETTINGS SHEET FOR LOGO
             const GOOGLE_SCRIPT_CODE = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");var c=s.getSheetByName("Settings")||s.insertSheet("Settings");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Dept","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,6).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.department||"-",x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));c.clear();c.appendRow(["Key","Value"]);if(d.logo)c.appendRow(["Logo",d.logo]);return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var c=s.getSheetByName("Settings");var inv=[];var tx=[];var logo="";if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),employeeName:r[1],department:r[2]||"General",items:[{itemName:r[3],quantity:0,itemId:"0"}],timestamp:r[4],method:r[5]}));if(c&&c.getLastRow()>1){var r=c.getRange(2,1,c.getLastRow()-1,2).getValues().find(x=>x[0]==="Logo");if(r)logo=r[1];}return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx,logo:logo})).setMimeType(ContentService.MimeType.JSON);}`;
 
-            const handleImportInv = () => {
-                const lines = importText.trim().split('\n');
-                const newItems = lines.map(line => {
-                    const [name, category, quantity, unit, threshold] = line.split(',').map(s => s.trim());
+            const parseInventory = (text) => {
+                const lines = text.trim().split('\n');
+                return lines.map(line => {
+                    const cols = line.split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+                    const [name, category, quantity, unit, threshold] = cols;
                     if(!name) return null;
                     return {
                         id: Date.now() + Math.random().toString(),
                         name, category: category || 'General', quantity: Number(quantity) || 0, unit: unit || 'pcs', threshold: Number(threshold) || 5, lastUpdated: new Date().toISOString()
                     };
                 }).filter(i => i);
-                onImport(newItems, null);
-                setImportText('');
-                showNotif(`Imported ${newItems.length} items`);
             };
 
-            const handleImportHist = () => {
-                const lines = importText.trim().split('\n');
-                const newTx = lines.map(line => {
-                    const [date, time, emp, dept, item, qty, method] = line.split(',').map(s => s.trim());
+            const parseHistory = (text) => {
+                const lines = text.trim().split('\n');
+                return lines.map(line => {
+                    const cols = line.split(',').map(s => s.trim().replace(/^"|"$/g, ''));
+                    const [date, time, emp, dept, item, qty, method] = cols;
                     if(!emp) return null;
                     return {
                         id: Date.now() + Math.random(),
@@ -489,26 +492,77 @@
                         method: method || 'IMPORT'
                     };
                 }).filter(i => i);
-                onImport(null, newTx);
-                setImportText('');
-                showNotif(`Imported ${newTx.length} records`);
+            };
+
+            const handleImportInv = () => {
+                const newItems = parseInventory(importText);
+                if(newItems.length) {
+                    onImport(newItems, null);
+                    setImportText('');
+                    showNotif(`Imported ${newItems.length} items`);
+                }
+            };
+
+            const handleImportHist = () => {
+                const newTx = parseHistory(importText);
+                if(newTx.length) {
+                    onImport(null, newTx);
+                    setImportText('');
+                    showNotif(`Imported ${newTx.length} records`);
+                }
+            };
+
+            const triggerFileUpload = (mode) => {
+                setImportMode(mode);
+                if(fileInputRef.current) {
+                    fileInputRef.current.value = ''; // reset
+                    fileInputRef.current.click();
+                }
+            };
+
+            const onFileChange = (e) => {
+                const file = e.target.files[0];
+                if(!file) return;
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    const text = evt.target.result;
+                    if(importMode === 'INV') {
+                         const data = parseInventory(text);
+                         onImport(data, null);
+                         showNotif(`Uploaded ${data.length} items`);
+                    } else {
+                         const data = parseHistory(text);
+                         onImport(null, data);
+                         showNotif(`Uploaded ${data.length} logs`);
+                    }
+                };
+                reader.readAsText(file);
             };
 
             return (
                 <div className="max-w-2xl mx-auto space-y-6 animate-fade-in pb-12">
                      <div className="bg-white p-6 rounded border">
-                        <h3 className="font-bold text-lg mb-4">Bulk Import (CSV)</h3>
-                        <div className="text-xs text-slate-500 mb-2">Paste comma-separated data. No headers needed.</div>
+                        <h3 className="font-bold text-lg mb-4">Data Import (CSV)</h3>
+                        <div className="text-xs text-slate-500 mb-2">Paste data OR upload .csv file. No headers needed.</div>
+                        
                         <textarea 
-                            className="w-full p-2 border rounded h-32 text-xs font-mono mb-2" 
-                            placeholder="INVENTORY FORMAT: Name, Category, Qty, Unit, MinLimit&#10;Example: Helmet, Head, 50, pcs, 10&#10;&#10;HISTORY FORMAT: YYYY-MM-DD, HH:MM, Name, Dept, Item, Qty, Method&#10;Example: 2023-10-25, 14:30, John, Logistics, Helmet, 1, MANUAL"
+                            className="w-full p-2 border rounded h-32 text-xs font-mono mb-4" 
+                            placeholder="INVENTORY: Name, Category, Qty, Unit, MinLimit&#10;HISTORY: YYYY-MM-DD, HH:MM, Name, Dept, Item, Qty, Method"
                             value={importText}
                             onChange={e => setImportText(e.target.value)}
                         />
-                        <div className="flex gap-2">
-                            <button onClick={handleImportInv} className="bg-slate-200 text-slate-800 px-3 py-2 rounded text-sm font-bold flex-1 hover:bg-slate-300">Import as Inventory</button>
-                            <button onClick={handleImportHist} className="bg-slate-200 text-slate-800 px-3 py-2 rounded text-sm font-bold flex-1 hover:bg-slate-300">Import as History</button>
+                        
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="flex gap-2">
+                                <button onClick={handleImportInv} className="bg-slate-200 text-slate-800 px-3 py-2 rounded text-sm font-bold flex-1 hover:bg-slate-300">Paste Inv</button>
+                                <button onClick={()=>triggerFileUpload('INV')} className="bg-slate-200 text-slate-800 px-3 py-2 rounded text-sm font-bold hover:bg-slate-300 flex items-center justify-center" title="Upload CSV"><Icons.Upload/></button>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={handleImportHist} className="bg-slate-200 text-slate-800 px-3 py-2 rounded text-sm font-bold flex-1 hover:bg-slate-300">Paste Hist</button>
+                                <button onClick={()=>triggerFileUpload('HIST')} className="bg-slate-200 text-slate-800 px-3 py-2 rounded text-sm font-bold hover:bg-slate-300 flex items-center justify-center" title="Upload CSV"><Icons.Upload/></button>
+                            </div>
                         </div>
+                        <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={onFileChange} />
                     </div>
 
                     <div className="bg-white p-6 rounded border">
