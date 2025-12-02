@@ -313,8 +313,12 @@
                         <form onSubmit={(e)=>{
                             e.preventDefault();
                             const fd = new FormData(e.target);
+                            // FIXED: Use the ID from the hidden input to ensure we don't generate a new one during edit
+                            const formId = fd.get('obj_id');
+                            const finalId = (formId && formId !== '') ? String(formId) : Date.now().toString();
+
                             onSave({
-                                id: initialData ? initialData.id : Date.now().toString(),
+                                id: finalId,
                                 name: fd.get('name'),
                                 category: fd.get('category'),
                                 quantity: Number(fd.get('quantity')),
@@ -323,6 +327,9 @@
                                 lastUpdated: new Date().toISOString()
                             });
                         }} className="space-y-4">
+                            {/* HIDDEN INPUT FOR ID PERSISTENCE */}
+                            <input type="hidden" name="obj_id" defaultValue={initialData ? initialData.id : ''} />
+                            
                             <div><label className="text-xs font-bold text-slate-500">NAME</label><input name="name" className="w-full p-2 border rounded" required defaultValue={initialData?.name}/></div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div><label className="text-xs font-bold text-slate-500">CATEGORY</label><select name="category" className="w-full p-2 border rounded" defaultValue={initialData?.category||'General'}><option>Head</option><option>Eye</option><option>Hand</option><option>Foot</option><option>Apparel</option><option>General</option></select></div>
@@ -719,9 +726,11 @@
 
                 const cloud = await fetchSheets(settings.sheetUrl);
                 if(cloud && cloud.inventory) {
-                    setInventory(cloud.inventory);
+                    // FIXED: Sanitize IDs on sync
+                    const safeInv = cloud.inventory.map(i => ({...i, id: String(i.id).trim()}));
+                    setInventory(safeInv);
                     setTransactions(cloud.transactions);
-                    saveData(STORAGE_KEYS.INVENTORY, cloud.inventory);
+                    saveData(STORAGE_KEYS.INVENTORY, safeInv);
                     saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
                     if(cloud.logo) {
                         setLogo(cloud.logo);
@@ -739,18 +748,22 @@
                 // Load saved logo
                 setLogo(localStorage.getItem(STORAGE_KEYS.LOGO));
 
-                setInventory(safeParse(STORAGE_KEYS.INVENTORY, [
+                const loadedInv = safeParse(STORAGE_KEYS.INVENTORY, [
                     { id: '1', name: 'Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
                     { id: '5', name: 'Gloves', category: 'Hand', quantity: 120, unit: 'prs', threshold: 50, lastUpdated: new Date().toISOString() },
-                ]));
+                ]);
+                // FIXED: Sanitize IDs on initial load
+                setInventory(loadedInv.map(i => ({...i, id: String(i.id).trim()})));
+
                 setTransactions(safeParse(STORAGE_KEYS.TRANSACTIONS, []));
                 
                 if(s.sheetUrl) {
                     fetchSheets(s.sheetUrl).then(d => {
                         if(d && d.inventory) {
-                            setInventory(d.inventory);
+                            const safeInv = d.inventory.map(i => ({...i, id: String(i.id).trim()}));
+                            setInventory(safeInv);
                             setTransactions(d.transactions);
-                            saveData(STORAGE_KEYS.INVENTORY, d.inventory);
+                            saveData(STORAGE_KEYS.INVENTORY, safeInv);
                             saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions);
                             if(d.logo) {
                                 setLogo(d.logo);
