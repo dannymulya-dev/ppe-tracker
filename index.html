@@ -225,8 +225,27 @@
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, [wrapperRef]);
 
-            const selectedItem = items.find(i => i.id === value);
-            const filtered = items.filter(i => i.name.toLowerCase().includes(search.toLowerCase()));
+            const selectedItem = items.find(i => String(i.id) === String(value));
+            
+            // Fixed: useMemo and stable sorting logic identical to InventoryView
+            const filteredItems = useMemo(() => {
+                let data = items || [];
+                if (search.trim()) {
+                    const lower = search.toLowerCase();
+                    data = data.filter(item => 
+                        String(item.name || '').toLowerCase().includes(lower) || 
+                        String(item.category || '').toLowerCase().includes(lower)
+                    );
+                }
+                return [...data].sort((a, b) => {
+                    const nameA = String(a.name || '').toLowerCase();
+                    const nameB = String(b.name || '').toLowerCase();
+                    if (nameA < nameB) return -1;
+                    if (nameA > nameB) return 1;
+                    // Secondary stable sort by ID
+                    return String(a.id || '').localeCompare(String(b.id || ''));
+                });
+            }, [items, search]);
 
             return (
                 <div className="relative" ref={wrapperRef}>
@@ -257,9 +276,9 @@
                     
                     {isOpen && (
                         <div className="absolute z-50 w-full bg-white border rounded shadow-lg max-h-60 overflow-auto mt-1">
-                            {filtered.length > 0 ? filtered.map(item => (
+                            {filteredItems.length > 0 ? filteredItems.map((item, index) => (
                                 <div 
-                                    key={item.id}
+                                    key={`${item.id}-${index}`}
                                     className={`p-2 hover:bg-slate-100 cursor-pointer ${item.quantity === 0 ? 'opacity-50' : ''}`}
                                     onClick={() => {
                                         if(item.quantity > 0) {
