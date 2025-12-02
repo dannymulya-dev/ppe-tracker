@@ -799,15 +799,17 @@
             };
 
             const saveItem = (item) => {
-                // FIXED: Robust ID check using String coercion to prevent duplication if types mismatch
-                const existingIdx = inventory.findIndex(i => String(i.id) === String(item.id));
+                // FIXED: Very robust ID check to ensure we find the existing item even if types/whitespace differ
+                const safeId = String(item.id).trim();
+                const existingIdx = inventory.findIndex(i => String(i.id).trim() === safeId);
                 
                 let newInv;
                 if (existingIdx >= 0) {
                     newInv = [...inventory];
-                    newInv[existingIdx] = item;
+                    // Replace item but ensure ID is clean
+                    newInv[existingIdx] = { ...item, id: safeId }; 
                 } else {
-                    newInv = [...inventory, item];
+                    newInv = [...inventory, { ...item, id: safeId }];
                 }
                 
                 updateStock(newInv);
@@ -818,8 +820,9 @@
 
             const deleteItem = (id) => {
                 if(!confirm("Delete?")) return;
+                const safeId = String(id).trim();
                 // FIXED: Robust string ID filter
-                updateStock(inventory.filter(i => String(i.id) !== String(id)));
+                updateStock(inventory.filter(i => String(i.id).trim() !== safeId));
                 showNotif('Item Deleted');
             };
 
@@ -1000,7 +1003,15 @@
                     
                     {notify && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg animate-bounce z-50">{notify}</div>}
                     
-                    <InventoryModal isOpen={modalOpen} onClose={()=>setModalOpen(false)} initialData={editItem} onSave={saveItem} />
+                    {/* KEY ADDED HERE: Forces reset when modal opens or item changes */}
+                    <InventoryModal 
+                        key={modalOpen ? (editItem ? editItem.id : 'new') : 'closed'}
+                        isOpen={modalOpen} 
+                        onClose={()=>setModalOpen(false)} 
+                        initialData={editItem} 
+                        onSave={saveItem} 
+                    />
+                    
                     <TransactionModal isOpen={txModalOpen} onClose={()=>setTxModalOpen(false)} initialData={editTx} onSave={saveTx} />
 
                     {qrOpen && (
