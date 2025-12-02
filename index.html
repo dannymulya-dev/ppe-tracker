@@ -83,6 +83,25 @@
         const safeParse = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
         const saveData = (key, data) => localStorage.setItem(key, JSON.stringify(data));
 
+        // NEW: Deduplication Logic
+        const deduplicateInventory = (items) => {
+            const map = new Map();
+            items.forEach(item => {
+                const id = String(item.id).trim();
+                // If ID exists, keep the one with the LATEST lastUpdated date
+                if (!map.has(id)) {
+                    map.set(id, { ...item, id });
+                } else {
+                    const existing = map.get(id);
+                    // If current item is newer than existing, replace it
+                    if (new Date(item.lastUpdated) > new Date(existing.lastUpdated)) {
+                        map.set(id, { ...item, id });
+                    }
+                }
+            });
+            return Array.from(map.values());
+        };
+
         const syncSheets = async (url, inv, tx, logo) => {
             if(!url) return;
             try { 
@@ -228,7 +247,8 @@
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, [wrapperRef]);
 
-            const selectedItem = items.find(i => String(i.id) === String(value));
+            // FIX: Ensure ID comparison is string vs string
+            const selectedItem = items.find(i => String(i.id).trim() === String(value).trim());
             
             const filteredItems = useMemo(() => {
                 let data = items || [];
@@ -726,11 +746,14 @@
 
                 const cloud = await fetchSheets(settings.sheetUrl);
                 if(cloud && cloud.inventory) {
-                    // FIXED: Sanitize IDs on sync
+                    // FIXED: Sanitize IDs on sync AND Deduplicate
                     const safeInv = cloud.inventory.map(i => ({...i, id: String(i.id).trim()}));
-                    setInventory(safeInv);
+                    // Apply deduplication to fetched data
+                    const uniqueInv = deduplicateInventory(safeInv);
+                    
+                    setInventory(uniqueInv);
                     setTransactions(cloud.transactions);
-                    saveData(STORAGE_KEYS.INVENTORY, safeInv);
+                    saveData(STORAGE_KEYS.INVENTORY, uniqueInv);
                     saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
                     if(cloud.logo) {
                         setLogo(cloud.logo);
@@ -752,8 +775,10 @@
                     { id: '1', name: 'Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
                     { id: '5', name: 'Gloves', category: 'Hand', quantity: 120, unit: 'prs', threshold: 50, lastUpdated: new Date().toISOString() },
                 ]);
-                // FIXED: Sanitize IDs on initial load
-                setInventory(loadedInv.map(i => ({...i, id: String(i.id).trim()})));
+                // FIXED: Sanitize IDs on initial load AND Deduplicate
+                const sanitized = loadedInv.map(i => ({...i, id: String(i.id).trim()}));
+                const uniqueInv = deduplicateInventory(sanitized);
+                setInventory(uniqueInv);
 
                 setTransactions(safeParse(STORAGE_KEYS.TRANSACTIONS, []));
                 
@@ -761,9 +786,10 @@
                     fetchSheets(s.sheetUrl).then(d => {
                         if(d && d.inventory) {
                             const safeInv = d.inventory.map(i => ({...i, id: String(i.id).trim()}));
-                            setInventory(safeInv);
+                            const uniqueCloudInv = deduplicateInventory(safeInv);
+                            setInventory(uniqueCloudInv);
                             setTransactions(d.transactions);
-                            saveData(STORAGE_KEYS.INVENTORY, safeInv);
+                            saveData(STORAGE_KEYS.INVENTORY, uniqueCloudInv);
                             saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions);
                             if(d.logo) {
                                 setLogo(d.logo);
@@ -855,8 +881,10 @@
 
             const handleImport = (importedInv, importedHist) => {
                 if (importedInv) {
-                    const newInv = [...inventory, ...importedInv];
-                    updateStock(newInv, undefined);
+                    const combined = [...inventory, ...importedInv];
+                    // Apply deduplication on import
+                    const uniqueInv = deduplicateInventory(combined);
+                    updateStock(uniqueInv, undefined);
                 }
                 if (importedHist) {
                     const newTx = [...transactions, ...importedHist];
