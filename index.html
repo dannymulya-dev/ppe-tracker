@@ -100,7 +100,10 @@
                 const res = await fetch(`${url}?action=GET_DATA`);
                 const data = await res.json();
                 return data.status === 'success' ? data : null;
-            } catch(e) { return null; }
+            } catch(e) { 
+                console.error("Fetch Error:", e);
+                return null; 
+            }
         };
 
         const callGemini = async (apiKey, prompt, systemInstruction) => {
@@ -227,7 +230,6 @@
 
             const selectedItem = items.find(i => String(i.id) === String(value));
             
-            // Fixed: useMemo and stable sorting logic identical to InventoryView
             const filteredItems = useMemo(() => {
                 let data = items || [];
                 if (search.trim()) {
@@ -242,7 +244,6 @@
                     const nameB = String(b.name || '').toLowerCase();
                     if (nameA < nameB) return -1;
                     if (nameA > nameB) return 1;
-                    // Secondary stable sort by ID
                     return String(a.id || '').localeCompare(String(b.id || ''));
                 });
             }, [items, search]);
@@ -437,10 +438,8 @@
         const InventoryView = ({ inventory, setEditItem, setModalOpen, deleteItem }) => {
             const [searchTerm, setSearchTerm] = useState('');
             
-            // Memoize sorted and filtered inventory to prevent render scrambling
             const processedInventory = useMemo(() => {
                 let data = inventory || [];
-                // Filter
                 if (searchTerm.trim()) {
                     const lower = searchTerm.toLowerCase();
                     data = data.filter(item => 
@@ -448,13 +447,11 @@
                         String(item.category || '').toLowerCase().includes(lower)
                     );
                 }
-                // Stable Sort (A-Z Name, then ID)
                 return [...data].sort((a, b) => {
                     const nameA = String(a.name || '').toLowerCase();
                     const nameB = String(b.name || '').toLowerCase();
                     if (nameA < nameB) return -1;
                     if (nameA > nameB) return 1;
-                    // Secondary sort by ID for stability - FORCE STRING to avoid crashes/sorting bugs with mixed types
                     return String(a.id || '').localeCompare(String(b.id || ''));
                 });
             }, [inventory, searchTerm]);
@@ -502,7 +499,6 @@
                             </thead>
                             <tbody className="divide-y">
                                 {processedInventory.map((i, index) => (
-                                    /* KEY FIX: Using composite key (id + index) forces React to treat rows as unique even if IDs duplicate or scramble */
                                     <tr key={`${i.id}-${index}`} className="hover:bg-slate-50 group">
                                         <td className="p-4 text-center font-mono text-slate-400">{index + 1}</td>
                                         <td className="p-4"><div className="font-bold">{i.name}</div><div className="text-xs text-slate-400">{i.category}</div></td>
@@ -531,8 +527,8 @@
             const fileInputRef = useRef(null);
             const [importMode, setImportMode] = useState(null); // 'INV' or 'HIST'
 
-            // UPDATED GOOGLE SCRIPT CODE TO INCLUDE SETTINGS SHEET FOR LOGO AND FIXED PARSING
-            const GOOGLE_SCRIPT_CODE = `function doPost(e){var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");var c=s.getSheetByName("Settings")||s.insertSheet("Settings");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Dept","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,6).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.department||"-",x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));c.clear();c.appendRow(["Key","Value"]);if(d.logo)c.appendRow(["Logo",d.logo]);return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var c=s.getSheetByName("Settings");var inv=[];var tx=[];var logo="";if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),employeeName:r[1],department:r[2]||"General",items:r[3].toString().split(",").map(x=>{var m=x.trim().match(/^(\\d+)x\\s+(.+)$/);return{itemName:m?m[2]:x.trim(),quantity:m?Number(m[1]):0}}),timestamp:r[4],method:r[5]}));if(c&&c.getLastRow()>1){var r=c.getRange(2,1,c.getLastRow()-1,2).getValues().find(x=>x[0]==="Logo");if(r)logo=r[1];}return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx,logo:logo})).setMimeType(ContentService.MimeType.JSON);}`;
+            // UPDATED GOOGLE SCRIPT CODE: Added try-catch for 500 errors and preserved parsing fix
+            const GOOGLE_SCRIPT_CODE = `function doPost(e){try{var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");var c=s.getSheetByName("Settings")||s.insertSheet("Settings");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Dept","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,6).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.department||"-",x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));c.clear();c.appendRow(["Key","Value"]);if(d.logo)c.appendRow(["Logo",d.logo]);return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){try{var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var c=s.getSheetByName("Settings");var inv=[];var tx=[];var logo="";if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),employeeName:r[1],department:r[2]||"General",items:r[3].toString().split(",").map(x=>{var m=x.trim().match(/^(\\d+)x\\s+(.+)$/);return{itemName:m?m[2]:x.trim(),quantity:m?Number(m[1]):0}}),timestamp:r[4],method:r[5]}));if(c&&c.getLastRow()>1){var r=c.getRange(2,1,c.getLastRow()-1,2).getValues().find(x=>x[0]==="Logo");if(r)logo=r[1];}return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx,logo:logo})).setMimeType(ContentService.MimeType.JSON);}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}}`;
 
             const parseInventory = (text) => {
                 const lines = text.trim().split('\n');
@@ -803,15 +799,27 @@
             };
 
             const saveItem = (item) => {
-                const newInv = editItem ? inventory.map(i => i.id === item.id ? item : i) : [...inventory, item];
+                // FIXED: Robust ID check using String coercion to prevent duplication if types mismatch
+                const existingIdx = inventory.findIndex(i => String(i.id) === String(item.id));
+                
+                let newInv;
+                if (existingIdx >= 0) {
+                    newInv = [...inventory];
+                    newInv[existingIdx] = item;
+                } else {
+                    newInv = [...inventory, item];
+                }
+                
                 updateStock(newInv);
                 setModalOpen(false);
+                setEditItem(null);
                 showNotif('Item Saved');
             };
 
             const deleteItem = (id) => {
                 if(!confirm("Delete?")) return;
-                updateStock(inventory.filter(i => i.id !== id));
+                // FIXED: Robust string ID filter
+                updateStock(inventory.filter(i => String(i.id) !== String(id)));
                 showNotif('Item Deleted');
             };
 
