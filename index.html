@@ -55,7 +55,7 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useRef } = React;
+        const { useState, useEffect, useRef, useMemo } = React;
 
         // --- ICONS ---
         const Icons = {
@@ -236,11 +236,16 @@
                     >
                         {isOpen ? (
                             <input 
+                                type="text"
                                 autoFocus
+                                autoComplete="off"
+                                autoCorrect="off"
+                                spellCheck="false"
                                 className="w-full outline-none text-sm"
                                 placeholder="Type to search..."
                                 value={search}
                                 onChange={e => setSearch(e.target.value)}
+                                onKeyDown={e => { if(e.key === 'Enter') e.preventDefault(); }}
                             />
                         ) : (
                             <span className={`text-sm ${!selectedItem ? "text-slate-400" : "text-slate-800"}`}>
@@ -363,7 +368,12 @@
                         <button onClick={()=>setCoTab('ai')} className={`flex-1 py-2 text-sm font-bold ${coTab==='ai'?'text-indigo-600 border-b-2 border-indigo-600':''}`}>AI Voice</button>
                     </div>
                     {coTab === 'manual' ? (
-                        <form onSubmit={e=>{e.preventDefault(); handleCheckout(coData.name, coData.dept, coData.item, coData.qty, 'MANUAL');}} className="space-y-3">
+                        <form onSubmit={e=>{
+                                e.preventDefault(); 
+                                const qty = Number(coData.qty);
+                                if (!qty || qty < 1) return alert("Please enter a valid quantity");
+                                handleCheckout(coData.name, coData.dept, coData.item, qty, 'MANUAL');
+                            }} className="space-y-3">
                             <input className="w-full p-2 border rounded" placeholder="Employee Name" required value={coData.name} onChange={e=>setCoData({...coData, name: e.target.value})}/>
                             <input className="w-full p-2 border rounded" placeholder="Department" list="depts-dash" required value={coData.dept} onChange={e=>setCoData({...coData, dept: e.target.value})}/>
                             <datalist id="depts-dash"><option value="Production"/><option value="Logistics"/><option value="Warehouse"/><option value="Engineering"/><option value="Office"/></datalist>
@@ -375,7 +385,7 @@
                                 placeholder="Search & Select Item..."
                             />
 
-                            <input type="number" min="1" className="w-full p-2 border rounded" required value={coData.qty} onChange={e=>setCoData({...coData, qty: Number(e.target.value)||1})}/>
+                            <input type="number" min="1" className="w-full p-2 border rounded" required value={coData.qty} onChange={e=>setCoData({...coData, qty: e.target.value})}/>
                             <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Submit</button>
                         </form>
                     ) : (
@@ -408,10 +418,27 @@
         const InventoryView = ({ inventory, setEditItem, setModalOpen, deleteItem }) => {
             const [searchTerm, setSearchTerm] = useState('');
             
-            const filteredInventory = inventory.filter(item => 
-                item.name.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                item.category.toLowerCase().includes(searchTerm.toLowerCase())
-            );
+            // Memoize sorted and filtered inventory to prevent render scrambling
+            const processedInventory = useMemo(() => {
+                let data = inventory || [];
+                // Filter
+                if (searchTerm.trim()) {
+                    const lower = searchTerm.toLowerCase();
+                    data = data.filter(item => 
+                        String(item.name || '').toLowerCase().includes(lower) || 
+                        String(item.category || '').toLowerCase().includes(lower)
+                    );
+                }
+                // Stable Sort (A-Z Name, then ID)
+                return [...data].sort((a, b) => {
+                    const nameA = String(a.name || '').toLowerCase();
+                    const nameB = String(b.name || '').toLowerCase();
+                    if (nameA < nameB) return -1;
+                    if (nameA > nameB) return 1;
+                    // Secondary sort by ID for stability - FORCE STRING to avoid crashes/sorting bugs with mixed types
+                    return String(a.id || '').localeCompare(String(b.id || ''));
+                });
+            }, [inventory, searchTerm]);
 
             return (
                 <div className="space-y-4 animate-fade-in">
@@ -421,21 +448,44 @@
                              <div className="relative flex-1 sm:flex-none">
                                 <Icons.Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4"/>
                                 <input 
-                                    className="w-full sm:w-64 pl-9 p-2 border rounded text-sm" 
+                                    type="text"
+                                    autoComplete="off"
+                                    autoCorrect="off"
+                                    spellCheck="false"
+                                    name="inv_search_unique"
+                                    className="w-full sm:w-64 pl-9 p-2 border rounded text-sm pr-8" 
                                     placeholder="Search items..." 
                                     value={searchTerm}
                                     onChange={e => setSearchTerm(e.target.value)}
                                 />
+                                {searchTerm && (
+                                    <button 
+                                        onClick={() => setSearchTerm('')}
+                                        className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 font-bold"
+                                    >
+                                        &times;
+                                    </button>
+                                )}
                             </div>
                             <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex gap-2 items-center whitespace-nowrap"><Icons.Plus/> Add Item</button>
                         </div>
                     </div>
                     <div className="bg-white rounded border overflow-x-auto">
                         <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500"><tr><th className="p-4">Item</th><th className="p-4">Qty</th><th className="p-4">Status</th><th className="p-4 text-right">Actions</th></tr></thead>
+                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                                <tr>
+                                    <th className="p-4 w-12 text-center">No</th>
+                                    <th className="p-4">Item</th>
+                                    <th className="p-4">Qty</th>
+                                    <th className="p-4">Status</th>
+                                    <th className="p-4 text-right">Actions</th>
+                                </tr>
+                            </thead>
                             <tbody className="divide-y">
-                                {filteredInventory.map(i=>(
-                                    <tr key={i.id} className="hover:bg-slate-50 group">
+                                {processedInventory.map((i, index) => (
+                                    /* KEY FIX: Using composite key (id + index) forces React to treat rows as unique even if IDs duplicate or scramble */
+                                    <tr key={`${i.id}-${index}`} className="hover:bg-slate-50 group">
+                                        <td className="p-4 text-center font-mono text-slate-400">{index + 1}</td>
                                         <td className="p-4"><div className="font-bold">{i.name}</div><div className="text-xs text-slate-400">{i.category}</div></td>
                                         <td className="p-4">{i.quantity} {i.unit}</td>
                                         <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${i.quantity<=i.threshold?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>{i.quantity<=i.threshold?'Low':'OK'}</span></td>
@@ -445,8 +495,8 @@
                                         </td>
                                     </tr>
                                 ))}
-                                {filteredInventory.length === 0 && (
-                                    <tr><td colSpan="4" className="p-8 text-center text-slate-400">No items found matching "{searchTerm}"</td></tr>
+                                {processedInventory.length === 0 && (
+                                    <tr><td colSpan="5" className="p-8 text-center text-slate-400">No items found matching "{searchTerm}"</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -630,7 +680,10 @@
             
             const [qrOpen, setQrOpen] = useState(false);
             const [coTab, setCoTab] = useState('manual');
-            const [coData, setCoData] = useState({ name: '', dept: '', item: '', qty: 1 });
+            
+            // FIXED: Using string '1' to allow deletion of input value
+            const [coData, setCoData] = useState({ name: '', dept: '', item: '', qty: '1' });
+            
             const [aiPrompt, setAiPrompt] = useState('');
             const [aiLoading, setAiLoading] = useState(false);
 
@@ -707,7 +760,7 @@
                 const newTx = { id: Date.now(), employeeName: name, department: dept, items: [{ itemName: item.name, quantity: qty }], timestamp: new Date().toISOString(), method };
                 updateStock(newInv, [newTx, ...transactions]);
                 showNotif('Checkout Success');
-                setCoData({ ...coData, item: '', qty: 1 });
+                setCoData({ ...coData, item: '', qty: '1' });
             };
 
             const handleAiCheckout = async (e) => {
@@ -873,6 +926,10 @@
                                              <div className="relative">
                                                 <Icons.Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4"/>
                                                 <input 
+                                                    type="text"
+                                                    autoComplete="off"
+                                                    autoCorrect="off"
+                                                    spellCheck="false"
                                                     className="w-full sm:w-64 pl-9 p-2 border rounded text-sm" 
                                                     placeholder="Search logs..." 
                                                     value={txSearch}
@@ -883,7 +940,7 @@
                                         </div>
                                     </div>
                                     {filteredTransactions.map((t,i)=>(
-                                        <div key={i} className="bg-white p-4 rounded border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-sm transition-shadow">
+                                        <div key={t.id} className="bg-white p-4 rounded border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-sm transition-shadow">
                                             <div className="flex-1">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-bold">{t.employeeName}</span>
