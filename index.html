@@ -50,6 +50,15 @@
             }
         }
     </script>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
+  }
+}
+</script>
 </head>
 <body>
     <div id="root"></div>
@@ -62,6 +71,7 @@
             Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3"/><rect width="7" height="5" x="14" y="3"/><rect width="7" height="9" x="14" y="12"/><rect width="7" height="5" x="3" y="16"/></svg>,
             List: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>,
             History: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>,
+            User: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
             Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
             Edit: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>,
             Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>,
@@ -77,23 +87,20 @@
         };
 
         // --- CONSTANTS ---
-        const STORAGE_KEYS = { INVENTORY: 'ppe_inv', TRANSACTIONS: 'ppe_tx', SETTINGS: 'ppe_set', LOGO: 'ppe_logo' };
+        const STORAGE_KEYS = { INVENTORY: 'ppe_inv', TRANSACTIONS: 'ppe_tx', INV_LOGS: 'ppe_inv_logs', SETTINGS: 'ppe_set', LOGO: 'ppe_logo' };
         
         // --- SERVICES ---
         const safeParse = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
         const saveData = (key, data) => localStorage.setItem(key, JSON.stringify(data));
 
-        // NEW: Deduplication Logic
         const deduplicateInventory = (items) => {
             const map = new Map();
             items.forEach(item => {
                 const id = String(item.id).trim();
-                // If ID exists, keep the one with the LATEST lastUpdated date
                 if (!map.has(id)) {
                     map.set(id, { ...item, id });
                 } else {
                     const existing = map.get(id);
-                    // If current item is newer than existing, replace it
                     if (new Date(item.lastUpdated) > new Date(existing.lastUpdated)) {
                         map.set(id, { ...item, id });
                     }
@@ -102,13 +109,13 @@
             return Array.from(map.values());
         };
 
-        const syncSheets = async (url, inv, tx, logo) => {
+        const syncSheets = async (url, inv, tx, logs, logo) => {
             if(!url) return;
             try { 
                 await fetch(url, { 
                     method: 'POST', 
                     headers: {'Content-Type': 'text/plain;charset=utf-8'}, 
-                    body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: tx, logo: logo }) 
+                    body: JSON.stringify({ action: 'SYNC', inventory: inv, transactions: tx, logs: logs, logo: logo }) 
                 }); 
             } catch(e) { console.log('Sync error', e); }
         };
@@ -170,7 +177,7 @@
                         </tbody>
                     </table>
                 `;
-            } else {
+            } else if (type === 'HISTORY') {
                 html = `
                     <table border="1">
                         <thead>
@@ -194,6 +201,33 @@
                                     <td>${tx.department || '-'}</td>
                                     <td>${tx.items.map(i => `${i.quantity}x ${i.itemName}`).join(', ')}</td>
                                     <td>${tx.method}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else if (type === 'LOGS') {
+                 html = `
+                    <table border="1">
+                        <thead>
+                            <tr style="background-color: #cccccc; font-weight: bold;">
+                                <th style="width: 50px;">No</th>
+                                <th style="width: 100px;">Date</th>
+                                <th style="width: 100px;">Time</th>
+                                <th style="width: 80px;">Action</th>
+                                <th style="width: 150px;">Item Name</th>
+                                <th style="width: 200px;">Change Details</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${data.map((log, index) => `
+                                <tr>
+                                    <td style="text-align: center;">${index + 1}</td>
+                                    <td>${new Date(log.timestamp).toLocaleDateString()}</td>
+                                    <td>${new Date(log.timestamp).toLocaleTimeString()}</td>
+                                    <td>${log.action}</td>
+                                    <td>${log.itemName}</td>
+                                    <td>${log.changeDetails}</td>
                                 </tr>
                             `).join('')}
                         </tbody>
@@ -247,7 +281,6 @@
                 return () => document.removeEventListener("mousedown", handleClickOutside);
             }, [wrapperRef]);
 
-            // FIX: Ensure ID comparison is string vs string
             const selectedItem = items.find(i => String(i.id).trim() === String(value).trim());
             
             const filteredItems = useMemo(() => {
@@ -333,7 +366,6 @@
                         <form onSubmit={(e)=>{
                             e.preventDefault();
                             const fd = new FormData(e.target);
-                            // FIXED: Use the ID from the hidden input to ensure we don't generate a new one during edit
                             const formId = fd.get('obj_id');
                             const finalId = (formId && formId !== '') ? String(formId) : Date.now().toString();
 
@@ -347,7 +379,6 @@
                                 lastUpdated: new Date().toISOString()
                             });
                         }} className="space-y-4">
-                            {/* HIDDEN INPUT FOR ID PERSISTENCE */}
                             <input type="hidden" name="obj_id" defaultValue={initialData ? initialData.id : ''} />
                             
                             <div><label className="text-xs font-bold text-slate-500">NAME</label><input name="name" className="w-full p-2 border rounded" required defaultValue={initialData?.name}/></div>
@@ -402,6 +433,127 @@
                             <button className="w-full bg-safety-600 text-white py-2 rounded font-bold hover:bg-safety-700">Update Log</button>
                         </form>
                     </div>
+                </div>
+            );
+        };
+
+        const PersonalTrackerView = ({ transactions }) => {
+            const [selectedEmployee, setSelectedEmployee] = useState('');
+            const [month, setMonth] = useState(new Date().toISOString().slice(0, 7)); // YYYY-MM
+
+            const employees = useMemo(() => {
+                return Array.from(new Set(transactions.map(t => t.employeeName))).sort();
+            }, [transactions]);
+
+            const stats = useMemo(() => {
+                if (!selectedEmployee || !month) return { total: 0, items: {}, list: [] };
+
+                const [y, m] = month.split('-');
+                const targetDate = new Date(Number(y), Number(m) - 1);
+                
+                const filtered = transactions.filter(t => {
+                    const d = new Date(t.timestamp);
+                    return t.employeeName === selectedEmployee && 
+                        d.getMonth() === targetDate.getMonth() && 
+                        d.getFullYear() === targetDate.getFullYear();
+                });
+
+                const itemCounts = {};
+                filtered.forEach(t => {
+                    t.items.forEach(i => {
+                        itemCounts[i.itemName] = (itemCounts[i.itemName] || 0) + i.quantity;
+                    });
+                });
+
+                return {
+                    total: filtered.reduce((acc, t) => acc + t.items.reduce((s, i) => s + i.quantity, 0), 0),
+                    items: itemCounts,
+                    list: filtered
+                };
+            }, [transactions, selectedEmployee, month]);
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <h2 className="text-xl font-bold">Personal Tracker</h2>
+                    </div>
+                    
+                    <div className="bg-white p-6 rounded shadow border space-y-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 mb-1 block">SELECT EMPLOYEE</label>
+                                <select 
+                                    className="w-full p-2 border rounded"
+                                    value={selectedEmployee}
+                                    onChange={e => setSelectedEmployee(e.target.value)}
+                                >
+                                    <option value="">-- Select Person --</option>
+                                    {employees.map(e => <option key={e} value={e}>{e}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 mb-1 block">SELECT MONTH</label>
+                                <input 
+                                    type="month" 
+                                    className="w-full p-2 border rounded"
+                                    value={month}
+                                    onChange={e => setMonth(e.target.value)}
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    {selectedEmployee && (
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                            <div className="bg-white p-6 rounded shadow border">
+                                <h3 className="font-bold text-lg mb-4 text-center">Summary</h3>
+                                <div className="text-center mb-6">
+                                    <div className="text-4xl font-bold text-safety-600">{stats.total}</div>
+                                    <div className="text-xs text-slate-400 uppercase">Items Taken</div>
+                                </div>
+                                <div className="space-y-2">
+                                    {Object.entries(stats.items).map(([name, qty]) => (
+                                        <div key={name} className="flex justify-between text-sm border-b pb-1 last:border-0">
+                                            <span>{name}</span>
+                                            <span className="font-bold">{qty}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            
+                            <div className="lg:col-span-2 bg-white p-6 rounded shadow border">
+                                <h3 className="font-bold text-lg mb-4">Transaction Details</h3>
+                                {stats.list.length > 0 ? (
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                                            <tr>
+                                                <th className="p-2 text-left">Date</th>
+                                                <th className="p-2 text-left">Items</th>
+                                                <th className="p-2 text-left">Method</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {stats.list.map(t => (
+                                                <tr key={t.id}>
+                                                    <td className="p-2">{new Date(t.timestamp).toLocaleDateString()}</td>
+                                                    <td className="p-2">
+                                                        {t.items.map((i, k) => (
+                                                            <span key={k} className="inline-block bg-slate-100 rounded px-2 py-1 text-xs mr-1 mb-1">
+                                                                {i.quantity}x {i.itemName}
+                                                            </span>
+                                                        ))}
+                                                    </td>
+                                                    <td className="p-2 text-slate-400 text-xs">{t.method}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <div className="text-center text-slate-400 py-8">No records for this period.</div>
+                                )}
+                            </div>
+                        </div>
+                    )}
                 </div>
             );
         };
@@ -462,8 +614,9 @@
             </div>
         );
 
-        const InventoryView = ({ inventory, setEditItem, setModalOpen, deleteItem }) => {
+        const InventoryView = ({ inventory, logs, setEditItem, setModalOpen, deleteItem }) => {
             const [searchTerm, setSearchTerm] = useState('');
+            const [tab, setTab] = useState('ITEMS'); // ITEMS or LOGS
             
             const processedInventory = useMemo(() => {
                 let data = inventory || [];
@@ -483,79 +636,129 @@
                 });
             }, [inventory, searchTerm]);
 
+            const processedLogs = useMemo(() => {
+                return [...logs].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+            }, [logs]);
+
             return (
                 <div className="space-y-4 animate-fade-in">
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                        <h2 className="text-xl font-bold">Inventory List</h2>
-                        <div className="flex w-full sm:w-auto gap-2">
-                             <div className="relative flex-1 sm:flex-none">
-                                <Icons.Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4"/>
-                                <input 
-                                    type="text"
-                                    autoComplete="off"
-                                    autoCorrect="off"
-                                    spellCheck="false"
-                                    name="inv_search_unique"
-                                    className="w-full sm:w-64 pl-9 p-2 border rounded text-sm pr-8" 
-                                    placeholder="Search items..." 
-                                    value={searchTerm}
-                                    onChange={e => setSearchTerm(e.target.value)}
-                                />
-                                {searchTerm && (
-                                    <button 
-                                        onClick={() => setSearchTerm('')}
-                                        className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 font-bold"
-                                    >
-                                        &times;
-                                    </button>
-                                )}
+                        <div className="flex items-center gap-4">
+                            <h2 className="text-xl font-bold">Inventory Management</h2>
+                            <div className="flex bg-white rounded border p-1">
+                                <button onClick={() => setTab('ITEMS')} className={`px-3 py-1 text-xs font-bold rounded ${tab === 'ITEMS' ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>Items</button>
+                                <button onClick={() => setTab('LOGS')} className={`px-3 py-1 text-xs font-bold rounded ${tab === 'LOGS' ? 'bg-slate-800 text-white' : 'text-slate-500'}`}>Logs</button>
                             </div>
-                            <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex gap-2 items-center whitespace-nowrap"><Icons.Plus/> Add Item</button>
                         </div>
+
+                        {tab === 'ITEMS' ? (
+                            <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                                <div className="flex gap-2">
+                                     <button onClick={()=>exportToExcel(inventory, 'INVENTORY')} className="bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-sm"><Icons.Excel/> Export List</button>
+                                </div>
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <div className="relative flex-1 sm:flex-none">
+                                        <Icons.Search className="absolute left-3 top-2.5 text-slate-400 w-4 h-4"/>
+                                        <input 
+                                            type="text"
+                                            autoComplete="off"
+                                            autoCorrect="off"
+                                            spellCheck="false"
+                                            className="w-full sm:w-64 pl-9 p-2 border rounded text-sm pr-8" 
+                                            placeholder="Search items..." 
+                                            value={searchTerm}
+                                            onChange={e => setSearchTerm(e.target.value)}
+                                        />
+                                        {searchTerm && (
+                                            <button onClick={() => setSearchTerm('')} className="absolute right-2 top-2 text-slate-400 hover:text-slate-600 font-bold">&times;</button>
+                                        )}
+                                    </div>
+                                    <button onClick={()=>{setEditItem(null); setModalOpen(true);}} className="bg-safety-600 text-white px-4 py-2 rounded font-bold flex gap-2 items-center whitespace-nowrap"><Icons.Plus/> Add</button>
+                                </div>
+                            </div>
+                        ) : (
+                             <button onClick={()=>exportToExcel(processedLogs, 'LOGS')} className="bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-sm"><Icons.Excel/> Export Logs</button>
+                        )}
                     </div>
-                    <div className="bg-white rounded border overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
-                                <tr>
-                                    <th className="p-4 w-12 text-center">No</th>
-                                    <th className="p-4">Item</th>
-                                    <th className="p-4">Qty</th>
-                                    <th className="p-4">Status</th>
-                                    <th className="p-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y">
-                                {processedInventory.map((i, index) => (
-                                    <tr key={`${i.id}-${index}`} className="hover:bg-slate-50 group">
-                                        <td className="p-4 text-center font-mono text-slate-400">{index + 1}</td>
-                                        <td className="p-4"><div className="font-bold">{i.name}</div><div className="text-xs text-slate-400">{i.category}</div></td>
-                                        <td className="p-4">{i.quantity} {i.unit}</td>
-                                        <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${i.quantity<=i.threshold?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>{i.quantity<=i.threshold?'Low':'OK'}</span></td>
-                                        <td className="p-4 text-right flex justify-end gap-2 relative z-10">
-                                            <button type="button" onClick={()=>{setEditItem(i); setModalOpen(true);}} className="text-slate-400 hover:text-indigo-600 p-2 hover:bg-slate-100 rounded transition-colors" title="Edit"><Icons.Edit/></button>
-                                            <button type="button" onClick={()=>deleteItem(i.id)} className="text-slate-400 hover:text-red-600 p-2 hover:bg-slate-100 rounded transition-colors" title="Delete"><Icons.Trash/></button>
-                                        </td>
+
+                    {tab === 'ITEMS' ? (
+                        <div className="bg-white rounded border overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                                    <tr>
+                                        <th className="p-4 w-12 text-center">No</th>
+                                        <th className="p-4">Item</th>
+                                        <th className="p-4">Qty</th>
+                                        <th className="p-4">Status</th>
+                                        <th className="p-4 text-right">Actions</th>
                                     </tr>
-                                ))}
-                                {processedInventory.length === 0 && (
-                                    <tr><td colSpan="5" className="p-8 text-center text-slate-400">No items found matching "{searchTerm}"</td></tr>
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {processedInventory.map((i, index) => (
+                                        <tr key={`${i.id}-${index}`} className="hover:bg-slate-50 group">
+                                            <td className="p-4 text-center font-mono text-slate-400">{index + 1}</td>
+                                            <td className="p-4"><div className="font-bold">{i.name}</div><div className="text-xs text-slate-400">{i.category}</div></td>
+                                            <td className="p-4">{i.quantity} {i.unit}</td>
+                                            <td className="p-4"><span className={`px-2 py-1 rounded-full text-xs font-bold ${i.quantity<=i.threshold?'bg-red-100 text-red-700':'bg-green-100 text-green-700'}`}>{i.quantity<=i.threshold?'Low':'OK'}</span></td>
+                                            <td className="p-4 text-right flex justify-end gap-2 relative z-10">
+                                                <button type="button" onClick={()=>{setEditItem(i); setModalOpen(true);}} className="text-slate-400 hover:text-indigo-600 p-2 hover:bg-slate-100 rounded transition-colors" title="Edit"><Icons.Edit/></button>
+                                                <button type="button" onClick={()=>deleteItem(i.id)} className="text-slate-400 hover:text-red-600 p-2 hover:bg-slate-100 rounded transition-colors" title="Delete"><Icons.Trash/></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {processedInventory.length === 0 && (
+                                        <tr><td colSpan="5" className="p-8 text-center text-slate-400">No items found matching "{searchTerm}"</td></tr>
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="bg-white rounded border overflow-x-auto">
+                            <table className="w-full text-sm text-left">
+                                <thead className="bg-slate-50 text-xs font-bold uppercase text-slate-500">
+                                    <tr>
+                                        <th className="p-4">Time</th>
+                                        <th className="p-4">Action</th>
+                                        <th className="p-4">Item</th>
+                                        <th className="p-4">Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y">
+                                    {processedLogs.map((log) => (
+                                        <tr key={log.id} className="hover:bg-slate-50">
+                                            <td className="p-4 whitespace-nowrap">
+                                                <div className="font-bold">{new Date(log.timestamp).toLocaleDateString()}</div>
+                                                <div className="text-xs text-slate-400">{new Date(log.timestamp).toLocaleTimeString()}</div>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className={`px-2 py-1 rounded text-xs font-bold ${
+                                                    log.action === 'CREATE' ? 'bg-green-100 text-green-700' :
+                                                    log.action === 'DELETE' ? 'bg-red-100 text-red-700' :
+                                                    'bg-blue-100 text-blue-700'
+                                                }`}>{log.action}</span>
+                                            </td>
+                                            <td className="p-4 font-medium">{log.itemName}</td>
+                                            <td className="p-4 text-slate-600 font-mono text-xs">{log.changeDetails}</td>
+                                        </tr>
+                                    ))}
+                                    {processedLogs.length === 0 && <tr><td colSpan="4" className="p-8 text-center text-slate-400">No logs available.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
                 </div>
             );
         };
 
-        const SettingsView = ({ settings, setSettings, saveData, showNotif, doCloudSync, inventory, transactions, onImport }) => {
+        const SettingsView = ({ settings, setSettings, saveData, showNotif, doCloudSync, inventory, transactions, logs, onImport }) => {
             const [copied, setCopied] = useState(false);
             const [showGuide, setShowGuide] = useState(false);
             const [importText, setImportText] = useState('');
             const fileInputRef = useRef(null);
-            const [importMode, setImportMode] = useState(null); // 'INV' or 'HIST'
+            const [importMode, setImportMode] = useState(null);
 
-            // UPDATED GOOGLE SCRIPT CODE: Added try-catch for 500 errors and preserved parsing fix
-            const GOOGLE_SCRIPT_CODE = `function doPost(e){try{var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");var c=s.getSheetByName("Settings")||s.insertSheet("Settings");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Dept","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,6).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.department||"-",x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));c.clear();c.appendRow(["Key","Value"]);if(d.logo)c.appendRow(["Logo",d.logo]);return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){try{var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var c=s.getSheetByName("Settings");var inv=[];var tx=[];var logo="";if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),employeeName:r[1],department:r[2]||"General",items:r[3].toString().split(",").map(x=>{var m=x.trim().match(/^(\\d+)x\\s+(.+)$/);return{itemName:m?m[2]:x.trim(),quantity:m?Number(m[1]):0}}),timestamp:r[4],method:r[5]}));if(c&&c.getLastRow()>1){var r=c.getRange(2,1,c.getLastRow()-1,2).getValues().find(x=>x[0]==="Logo");if(r)logo=r[1];}return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx,logo:logo})).setMimeType(ContentService.MimeType.JSON);}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}}`;
+            // UPDATED GOOGLE SCRIPT CODE to include InventoryLogs
+            const GOOGLE_SCRIPT_CODE = `function doPost(e){try{var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");var l=s.getSheetByName("InventoryLogs")||s.insertSheet("InventoryLogs");var c=s.getSheetByName("Settings")||s.insertSheet("Settings");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Dept","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,6).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.department||"-",x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));l.clear();l.appendRow(["ID","Time","Action","Item","Details"]);if(d.logs&&d.logs.length)l.getRange(2,1,d.logs.length,5).setValues(d.logs.map(x=>[x.id,x.timestamp,x.action,x.itemName,x.changeDetails]));c.clear();c.appendRow(["Key","Value"]);if(d.logo)c.appendRow(["Logo",d.logo]);return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){try{var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var l=s.getSheetByName("InventoryLogs");var c=s.getSheetByName("Settings");var inv=[];var tx=[];var logs=[];var logo="";if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),employeeName:r[1],department:r[2]||"General",items:r[3].toString().split(",").map(x=>{var m=x.trim().match(/^(\\d+)x\\s+(.+)$/);return{itemName:m?m[2]:x.trim(),quantity:m?Number(m[1]):0}}),timestamp:r[4],method:r[5]}));if(l&&l.getLastRow()>1)logs=l.getRange(2,1,l.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),timestamp:r[1],action:r[2],itemName:r[3],changeDetails:r[4]}));if(c&&c.getLastRow()>1){var r=c.getRange(2,1,c.getLastRow()-1,2).getValues().find(x=>x[0]==="Logo");if(r)logo=r[1];}return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx,logs:logs,logo:logo})).setMimeType(ContentService.MimeType.JSON);}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}}`;
 
             const parseInventory = (text) => {
                 const lines = text.trim().split('\n');
@@ -659,12 +862,15 @@
 
                     <div className="bg-white p-6 rounded border">
                          <h3 className="font-bold text-lg mb-4">Export Data (Excel)</h3>
-                         <div className="grid grid-cols-2 gap-4">
-                            <button onClick={()=>exportToExcel(inventory, 'INVENTORY')} className="flex items-center justify-center gap-2 border p-3 rounded hover:bg-slate-50 text-sm font-bold text-emerald-700">
+                         <div className="flex flex-col gap-3">
+                            <button onClick={()=>exportToExcel(inventory, 'INVENTORY')} className="flex items-center justify-center gap-2 border p-3 rounded hover:bg-emerald-50 text-sm font-bold text-emerald-700">
                                 <Icons.Excel/> Inventory List (.xls)
                             </button>
-                            <button onClick={()=>exportToExcel(transactions, 'HISTORY')} className="flex items-center justify-center gap-2 border p-3 rounded hover:bg-slate-50 text-sm font-bold text-emerald-700">
-                                <Icons.Excel/> History Log (.xls)
+                            <button onClick={()=>exportToExcel(transactions, 'HISTORY')} className="flex items-center justify-center gap-2 border p-3 rounded hover:bg-emerald-50 text-sm font-bold text-emerald-700">
+                                <Icons.Excel/> Transaction History (.xls)
+                            </button>
+                            <button onClick={()=>exportToExcel(logs, 'LOGS')} className="flex items-center justify-center gap-2 border p-3 rounded hover:bg-emerald-50 text-sm font-bold text-emerald-700">
+                                <Icons.Excel/> Inventory Logs (.xls)
                             </button>
                          </div>
                     </div>
@@ -710,6 +916,7 @@
             const [view, setView] = useState('DASHBOARD');
             const [inventory, setInventory] = useState([]);
             const [transactions, setTransactions] = useState([]);
+            const [inventoryLogs, setInventoryLogs] = useState([]);
             const [settings, setSettings] = useState({ apiKey: '', sheetUrl: '' });
             const [notify, setNotify] = useState(null);
             const [logo, setLogo] = useState(null);
@@ -723,7 +930,6 @@
             const [qrOpen, setQrOpen] = useState(false);
             const [coTab, setCoTab] = useState('manual');
             
-            // FIXED: Using string '1' to allow deletion of input value
             const [coData, setCoData] = useState({ name: '', dept: '', item: '', qty: '1' });
             
             const [aiPrompt, setAiPrompt] = useState('');
@@ -739,20 +945,23 @@
                 if(!silent) showNotif(forcePush ? 'Saving to Cloud...' : 'Syncing...');
                 
                 if (forcePush) {
-                    await syncSheets(settings.sheetUrl, inventory, transactions, logo);
+                    await syncSheets(settings.sheetUrl, inventory, transactions, inventoryLogs, logo);
                     if(!silent) showNotif('Saved to Cloud!');
                     return;
                 }
 
                 const cloud = await fetchSheets(settings.sheetUrl);
                 if(cloud && cloud.inventory) {
-                    // FIXED: Sanitize IDs on sync AND Deduplicate
                     const safeInv = cloud.inventory.map(i => ({...i, id: String(i.id).trim()}));
-                    // Apply deduplication to fetched data
                     const uniqueInv = deduplicateInventory(safeInv);
                     
                     setInventory(uniqueInv);
                     setTransactions(cloud.transactions);
+                    if(cloud.logs) {
+                        setInventoryLogs(cloud.logs);
+                        saveData(STORAGE_KEYS.INV_LOGS, cloud.logs);
+                    }
+                    
                     saveData(STORAGE_KEYS.INVENTORY, uniqueInv);
                     saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
                     if(cloud.logo) {
@@ -765,22 +974,36 @@
                 }
             };
 
+            // Logs Helper
+            const addLog = (action, itemName, details) => {
+                const newLog = {
+                    id: Date.now().toString() + Math.random().toString().slice(2, 5),
+                    timestamp: new Date().toISOString(),
+                    action,
+                    itemName,
+                    changeDetails: details
+                };
+                const newLogs = [newLog, ...inventoryLogs];
+                setInventoryLogs(newLogs);
+                saveData(STORAGE_KEYS.INV_LOGS, newLogs);
+                return newLogs;
+            };
+
             useEffect(() => {
                 const s = safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' });
                 setSettings(s);
-                // Load saved logo
                 setLogo(localStorage.getItem(STORAGE_KEYS.LOGO));
 
                 const loadedInv = safeParse(STORAGE_KEYS.INVENTORY, [
                     { id: '1', name: 'Helmet (White)', category: 'Head', quantity: 45, unit: 'pcs', threshold: 10, lastUpdated: new Date().toISOString() },
                     { id: '5', name: 'Gloves', category: 'Hand', quantity: 120, unit: 'prs', threshold: 50, lastUpdated: new Date().toISOString() },
                 ]);
-                // FIXED: Sanitize IDs on initial load AND Deduplicate
                 const sanitized = loadedInv.map(i => ({...i, id: String(i.id).trim()}));
                 const uniqueInv = deduplicateInventory(sanitized);
                 setInventory(uniqueInv);
 
                 setTransactions(safeParse(STORAGE_KEYS.TRANSACTIONS, []));
+                setInventoryLogs(safeParse(STORAGE_KEYS.INV_LOGS, []));
                 
                 if(s.sheetUrl) {
                     fetchSheets(s.sheetUrl).then(d => {
@@ -789,6 +1012,10 @@
                             const uniqueCloudInv = deduplicateInventory(safeInv);
                             setInventory(uniqueCloudInv);
                             setTransactions(d.transactions);
+                            if(d.logs) {
+                                setInventoryLogs(d.logs);
+                                saveData(STORAGE_KEYS.INV_LOGS, d.logs);
+                            }
                             saveData(STORAGE_KEYS.INVENTORY, uniqueCloudInv);
                             saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions);
                             if(d.logo) {
@@ -800,11 +1027,11 @@
                 }
             }, []);
 
-            const updateStock = (newInv, newTx) => {
+            const updateStock = (newInv, newTx, newLogs) => {
                 setInventory(newInv); saveData(STORAGE_KEYS.INVENTORY, newInv);
                 const txs = newTx ? (newTx.length !== undefined ? newTx : transactions) : transactions;
                 if(newTx) { setTransactions(txs); saveData(STORAGE_KEYS.TRANSACTIONS, txs); }
-                syncSheets(settings.sheetUrl, newInv, txs, logo);
+                syncSheets(settings.sheetUrl, newInv, txs, newLogs || inventoryLogs, logo);
             };
 
             const handleCheckout = (name, dept, itemId, qty, method) => {
@@ -812,7 +1039,7 @@
                 if (!item) return;
                 const newInv = inventory.map(i => i.id === itemId ? { ...i, quantity: Math.max(0, i.quantity - qty), lastUpdated: new Date().toISOString() } : i);
                 const newTx = { id: Date.now(), employeeName: name, department: dept, items: [{ itemName: item.name, quantity: qty }], timestamp: new Date().toISOString(), method };
-                updateStock(newInv, [newTx, ...transactions]);
+                updateStock(newInv, [newTx, ...transactions], inventoryLogs);
                 showNotif('Checkout Success');
                 setCoData({ ...coData, item: '', qty: '1' });
             };
@@ -838,20 +1065,28 @@
             };
 
             const saveItem = (item) => {
-                // FIXED: Very robust ID check to ensure we find the existing item even if types/whitespace differ
                 const safeId = String(item.id).trim();
                 const existingIdx = inventory.findIndex(i => String(i.id).trim() === safeId);
                 
                 let newInv;
+                let currentLogs = inventoryLogs;
+
                 if (existingIdx >= 0) {
+                    const old = inventory[existingIdx];
+                    let changes = [];
+                    if(old.quantity !== item.quantity) changes.push(`Qty: ${old.quantity} -> ${item.quantity}`);
+                    if(old.name !== item.name) changes.push(`Name: ${old.name} -> ${item.name}`);
+                    if(changes.length === 0) changes.push("Updated details");
+                    
+                    currentLogs = addLog('UPDATE', item.name, changes.join(', '));
                     newInv = [...inventory];
-                    // Replace item but ensure ID is clean
                     newInv[existingIdx] = { ...item, id: safeId }; 
                 } else {
+                    currentLogs = addLog('CREATE', item.name, `Initial Qty: ${item.quantity}`);
                     newInv = [...inventory, { ...item, id: safeId }];
                 }
                 
-                updateStock(newInv);
+                updateStock(newInv, undefined, currentLogs);
                 setModalOpen(false);
                 setEditItem(null);
                 showNotif('Item Saved');
@@ -860,9 +1095,12 @@
             const deleteItem = (id) => {
                 if(!confirm("Delete?")) return;
                 const safeId = String(id).trim();
-                // FIXED: Robust string ID filter
-                updateStock(inventory.filter(i => String(i.id).trim() !== safeId));
-                showNotif('Item Deleted');
+                const item = inventory.find(i => String(i.id).trim() === safeId);
+                if(item) {
+                    const currentLogs = addLog('DELETE', item.name, 'Item removed from database');
+                    updateStock(inventory.filter(i => String(i.id).trim() !== safeId), undefined, currentLogs);
+                    showNotif('Item Deleted');
+                }
             };
 
             const saveTx = (tx) => {
@@ -882,9 +1120,10 @@
             const handleImport = (importedInv, importedHist) => {
                 if (importedInv) {
                     const combined = [...inventory, ...importedInv];
-                    // Apply deduplication on import
                     const uniqueInv = deduplicateInventory(combined);
-                    updateStock(uniqueInv, undefined);
+                    // Log bulk import
+                    const currentLogs = addLog('UPDATE', 'Bulk Import', `Imported ${importedInv.length} items`);
+                    updateStock(uniqueInv, undefined, currentLogs);
                 }
                 if (importedHist) {
                     const newTx = [...transactions, ...importedHist];
@@ -892,18 +1131,15 @@
                 }
             };
 
-            // Logo Handler
             const handleLogoUpload = (e) => {
                 const file = e.target.files[0];
                 if(file) {
                     const reader = new FileReader();
                     reader.onloadend = () => {
-                        // Create image to resize
                         const img = new Image();
                         img.onload = () => {
                             const canvas = document.createElement('canvas');
                             const ctx = canvas.getContext('2d');
-                            // Resize to max 128x128 to fit in Google Sheet cell limits
                             const MAX_SIZE = 128;
                             let w = img.width;
                             let h = img.height;
@@ -912,7 +1148,6 @@
                             canvas.width = w;
                             canvas.height = h;
                             ctx.drawImage(img, 0, 0, w, h);
-                            
                             const base64 = canvas.toDataURL('image/png');
                             setLogo(base64);
                             localStorage.setItem(STORAGE_KEYS.LOGO, base64);
@@ -955,6 +1190,7 @@
                                 {id:'DASHBOARD', icon: Icons.Dashboard},
                                 {id:'INVENTORY', icon: Icons.List},
                                 {id:'HISTORY', icon: Icons.History},
+                                {id:'TRACKER', icon: Icons.User},
                                 {id:'SETTINGS', icon: Icons.Settings}
                             ].map(item => (
                                 <button key={item.id} onClick={()=>setView(item.id)} className={`w-full flex items-center gap-3 px-4 py-3 rounded text-sm font-medium ${view===item.id?'bg-safety-600':'text-slate-400 hover:bg-slate-800'}`}>
@@ -984,6 +1220,7 @@
                             {view === 'INVENTORY' && 
                                 <InventoryView 
                                     inventory={inventory}
+                                    logs={inventoryLogs}
                                     setEditItem={setEditItem}
                                     setModalOpen={setModalOpen}
                                     deleteItem={deleteItem}
@@ -1007,7 +1244,7 @@
                                                     onChange={e => setTxSearch(e.target.value)}
                                                 />
                                             </div>
-                                            <button onClick={()=>exportToExcel(transactions, 'HISTORY')} className="text-emerald-700 text-xs font-bold underline flex items-center justify-center gap-1"><Icons.Excel/> Export Table (.xls)</button>
+                                            <button onClick={()=>exportToExcel(transactions, 'HISTORY')} className="bg-emerald-600 text-white text-xs font-bold px-3 py-2 rounded flex items-center justify-center gap-2 hover:bg-emerald-700 shadow-sm"><Icons.Excel/> Export Table</button>
                                         </div>
                                     </div>
                                     {filteredTransactions.map((t,i)=>(
@@ -1029,6 +1266,7 @@
                                     {filteredTransactions.length===0 && <div className="text-center text-slate-400 p-8">No records found.</div>}
                                 </div>
                             )}
+                            {view === 'TRACKER' && <PersonalTrackerView transactions={transactions} />}
                             {view === 'SETTINGS' && 
                                 <SettingsView 
                                     settings={settings} setSettings={setSettings}
@@ -1036,6 +1274,7 @@
                                     doCloudSync={doCloudSync}
                                     inventory={inventory}
                                     transactions={transactions}
+                                    logs={inventoryLogs}
                                     onImport={handleImport}
                                 />
                             }
@@ -1044,7 +1283,6 @@
                     
                     {notify && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg animate-bounce z-50">{notify}</div>}
                     
-                    {/* KEY ADDED HERE: Forces reset when modal opens or item changes */}
                     <InventoryModal 
                         key={modalOpen ? (editItem ? editItem.id : 'new') : 'closed'}
                         isOpen={modalOpen} 
