@@ -286,7 +286,13 @@
             const [editMarker, setEditMarker] = useState(null);
             const [hoveredMarker, setHoveredMarker] = useState(null);
             const [urlInput, setUrlInput] = useState('');
+            const [imgError, setImgError] = useState(false);
             const containerRef = useRef(null);
+
+            // Reset image error state when mapImage changes
+            useEffect(() => {
+                setImgError(false);
+            }, [mapImage]);
 
             const handleImageUpload = (e) => {
                 const file = e.target.files[0];
@@ -326,7 +332,7 @@
 
             const addMarker = (e) => {
                 if(e.target.closest('.map-marker')) return;
-                if(!mapImage) return;
+                if(!mapImage || imgError) return;
 
                 const rect = containerRef.current.getBoundingClientRect();
                 const x = ((e.clientX - rect.left) / rect.width) * 100;
@@ -376,6 +382,14 @@
                 }
             };
 
+            const resetMap = () => {
+                if(confirm("Reset map to default configuration?")) {
+                    setMapImage(DEFAULT_MAP_URL);
+                    saveData(STORAGE_KEYS.MAP_IMG, DEFAULT_MAP_URL);
+                    setImgError(false);
+                }
+            };
+
             return (
                 <div className="space-y-4 animate-fade-in" onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp}>
                     <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center bg-white p-4 rounded border shadow-sm gap-4">
@@ -397,15 +411,19 @@
                                 <Icons.Upload className="w-4 h-4" /> {mapImage ? "Change File" : "Upload File"}
                                 <input type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
                             </label>
+                            <button onClick={resetMap} className="bg-slate-100 text-slate-600 px-4 py-2 rounded font-bold hover:bg-slate-200 text-sm w-full sm:w-auto">
+                                Reset
+                            </button>
                         </div>
                     </div>
 
                     <div className="bg-white p-4 rounded border shadow-sm overflow-hidden relative min-h-[500px] flex items-center justify-center bg-slate-100">
-                        {!mapImage ? (
+                        {(!mapImage) ? (
                             <div className="text-slate-400 text-center max-w-sm">
                                 <Icons.Map className="w-16 h-16 mx-auto mb-2 opacity-20"/>
                                 <p className="font-bold mb-2">No Map Loaded</p>
-                                <p className="text-sm">Upload an image or paste a URL above. <br/><span className="text-xs text-orange-400">Note: Use URL for best sync reliability. Large uploaded files may not sync to cloud.</span></p>
+                                <p className="text-sm">Upload an image or paste a URL above.</p>
+                                <button onClick={resetMap} className="mt-4 text-indigo-600 font-bold underline">Load Default Map</button>
                             </div>
                         ) : (
                             <div 
@@ -414,8 +432,30 @@
                                 onClick={addMarker}
                                 onMouseMove={handleMouseMove}
                             >
-                                <img src={mapImage} className="w-full h-auto block pointer-events-none" alt="Map" />
-                                {markers.map(m => {
+                                <img 
+                                    src={mapImage} 
+                                    className={`w-full h-auto block pointer-events-none ${imgError ? 'opacity-0' : 'opacity-100'}`} 
+                                    alt="Map" 
+                                    onError={(e) => {
+                                        console.error("Map Image Load Error:", mapImage);
+                                        setImgError(true);
+                                    }}
+                                />
+                                {imgError && (
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100 text-center p-6 z-10">
+                                        <Icons.Map className="w-16 h-16 text-slate-300 mb-4" />
+                                        <h3 className="text-red-600 font-bold text-lg mb-2">Failed to Load Map Image</h3>
+                                        <p className="text-sm text-slate-500 max-w-md mb-4 break-all">
+                                            The URL could not be loaded: <br/>{mapImage.substring(0, 50)}...
+                                        </p>
+                                        <div className="flex gap-2">
+                                            <button onClick={resetMap} className="bg-indigo-600 text-white px-4 py-2 rounded font-bold hover:bg-indigo-700">Reset to Default</button>
+                                            <button onClick={()=>setImgError(false)} className="bg-slate-200 text-slate-700 px-4 py-2 rounded font-bold hover:bg-slate-300">Retry</button>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {!imgError && markers.map(m => {
                                     const isExpired = new Date(m.expiry) < new Date();
                                     return (
                                         <div
@@ -434,7 +474,7 @@
                                     );
                                 })}
 
-                                {hoveredMarker && !draggingId && (
+                                {!imgError && hoveredMarker && !draggingId && (
                                     <div 
                                         className="absolute z-50 bg-slate-800/95 backdrop-blur-sm text-white text-xs rounded-lg p-3 shadow-xl pointer-events-none w-48 border border-slate-600"
                                         style={{
@@ -1212,7 +1252,8 @@
                         setInventoryLogs(cloud.logs);
                         saveData(STORAGE_KEYS.INV_LOGS, cloud.logs);
                     }
-                    if(cloud.mapImage) {
+                    // IMPORTANT: Only override local map if cloud has a VALID value (not empty string)
+                    if(cloud.mapImage && cloud.mapImage.trim() !== '') {
                          setMapImage(cloud.mapImage);
                          saveData(STORAGE_KEYS.MAP_IMG, cloud.mapImage);
                     }
@@ -1260,7 +1301,16 @@
                 setSettings(s);
                 // Load saved data
                 setLogo(localStorage.getItem(STORAGE_KEYS.LOGO));
-                setMapImage(localStorage.getItem(STORAGE_KEYS.MAP_IMG) || DEFAULT_MAP_URL);
+
+                // FIXED MAP IMAGE LOADING: Check localStorage, fallback to DEFAULT
+                const savedMap = localStorage.getItem(STORAGE_KEYS.MAP_IMG);
+                if (savedMap && savedMap !== "null" && savedMap !== "undefined" && savedMap.trim() !== "") {
+                    setMapImage(savedMap);
+                } else {
+                    setMapImage(DEFAULT_MAP_URL);
+                    saveData(STORAGE_KEYS.MAP_IMG, DEFAULT_MAP_URL); // Force save default to storage
+                }
+
                 setMarkers(safeParse(STORAGE_KEYS.MAP_MARKERS, []));
 
                 const loadedInv = safeParse(STORAGE_KEYS.INVENTORY, [
@@ -1286,7 +1336,8 @@
                                 setInventoryLogs(d.logs);
                                 saveData(STORAGE_KEYS.INV_LOGS, d.logs);
                             }
-                            if(d.mapImage) {
+                            // Only update map from cloud if it has data
+                            if(d.mapImage && d.mapImage.trim() !== '') {
                                 setMapImage(d.mapImage);
                                 saveData(STORAGE_KEYS.MAP_IMG, d.mapImage);
                             }
