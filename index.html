@@ -282,7 +282,7 @@
             );
         };
 
-        const MapView = ({ mapImage, setMapImage, markers, setMarkers, saveData }) => {
+        const MapView = ({ mapImage, markers, updateMap }) => {
             const [draggingId, setDraggingId] = useState(null);
             const [editMarker, setEditMarker] = useState(null);
             const [hoveredMarker, setHoveredMarker] = useState(null);
@@ -314,8 +314,7 @@
                         canvas.height = h;
                         ctx.drawImage(img, 0, 0, w, h);
                         const base64 = canvas.toDataURL('image/jpeg', 0.6); // Medium quality compression
-                        setMapImage(base64);
-                        saveData(STORAGE_KEYS.MAP_IMG, base64);
+                        updateMap(base64, undefined);
                     };
                     img.src = evt.target.result;
                 };
@@ -325,8 +324,7 @@
             const handleUrlSubmit = (e) => {
                 e.preventDefault();
                 if(urlInput) {
-                    setMapImage(urlInput);
-                    saveData(STORAGE_KEYS.MAP_IMG, urlInput);
+                    updateMap(urlInput, undefined);
                     setUrlInput('');
                 }
             };
@@ -347,8 +345,7 @@
                     x, y
                 };
                 const updated = [...markers, newMarker];
-                setMarkers(updated);
-                saveData(STORAGE_KEYS.MAP_MARKERS, updated);
+                updateMap(undefined, updated);
             };
 
             const handleMouseMove = (e) => {
@@ -356,38 +353,59 @@
                     const rect = containerRef.current.getBoundingClientRect();
                     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
                     const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
-                    setMarkers(markers.map(m => m.id === draggingId ? { ...m, x, y } : m));
+                    // Update ONLY local visual state during drag, do not sync yet
+                    // Optimization: We can't update 'markers' prop directly, so we need a way to visualize.
+                    // For simplicity in this structure, we call updateMap but we can check if we want to sync only on mouse up.
+                    // Actually, let's just update state visually via updateMap but maybe the parent debounces? 
+                    // No, parent does sync immediately. To avoid spamming sync, we should only update prop on MouseUp.
+                    // But we need visual feedback. 
+                    // Let's modify the local display markers instead.
+                }
+            };
+            
+            // NOTE: For drag performance, we actually need local state for markers, or we accept network spam.
+            // Better: We use a local state for markers, sync with props, and only call updateMap on drop.
+            const [localMarkers, setLocalMarkers] = useState(markers);
+            
+            useEffect(() => {
+                setLocalMarkers(markers);
+            }, [markers]);
+
+            const handleLocalMove = (e) => {
+                 if (draggingId && containerRef.current) {
+                    const rect = containerRef.current.getBoundingClientRect();
+                    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100));
+                    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100));
+                    setLocalMarkers(localMarkers.map(m => m.id === draggingId ? { ...m, x, y } : m));
                 }
             };
 
             const handleMouseUp = () => {
                 if(draggingId) {
-                    saveData(STORAGE_KEYS.MAP_MARKERS, markers);
+                    // Sync to parent/cloud only on drop
+                    updateMap(undefined, localMarkers);
                     setDraggingId(null);
                 }
             };
 
             const saveMarkerDetails = (id, name, type, expiry) => {
-                const updated = markers.map(m => m.id === id ? { ...m, name, type, expiry } : m);
-                setMarkers(updated);
-                saveData(STORAGE_KEYS.MAP_MARKERS, updated);
+                const updated = localMarkers.map(m => m.id === id ? { ...m, name, type, expiry } : m);
+                updateMap(undefined, updated);
                 setEditMarker(null);
             };
 
             const deleteMarker = (id) => {
                 if(confirm("Remove this extinguisher?")) {
-                    const updated = markers.filter(m => m.id !== id);
-                    setMarkers(updated);
-                    saveData(STORAGE_KEYS.MAP_MARKERS, updated);
+                    const updated = localMarkers.filter(m => m.id !== id);
+                    updateMap(undefined, updated);
                     setEditMarker(null);
                 }
             };
 
             const resetMap = () => {
                 if(confirm("Reset map to default configuration?")) {
-                    setMapImage(DEFAULT_MAP_URL);
-                    saveData(STORAGE_KEYS.MAP_IMG, DEFAULT_MAP_URL);
                     setImgError(false);
+                    updateMap(DEFAULT_MAP_URL, undefined);
                 }
             };
 
@@ -431,7 +449,7 @@
                                 ref={containerRef}
                                 className="relative w-full shadow-lg cursor-crosshair select-none"
                                 onClick={addMarker}
-                                onMouseMove={handleMouseMove}
+                                onMouseMove={handleLocalMove}
                             >
                                 <img 
                                     src={mapImage} 
@@ -456,7 +474,7 @@
                                     </div>
                                 )}
                                 
-                                {!imgError && markers.map(m => {
+                                {!imgError && localMarkers.map(m => {
                                     const isExpired = new Date(m.expiry) < new Date();
                                     return (
                                         <div
@@ -1044,7 +1062,8 @@
             const [importMode, setImportMode] = useState(null);
 
             // UPDATED GOOGLE SCRIPT CODE to include InventoryLogs, MapData and MapImage
-            const GOOGLE_SCRIPT_CODE = `function doPost(e){try{var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");var l=s.getSheetByName("InventoryLogs")||s.insertSheet("InventoryLogs");var c=s.getSheetByName("Settings")||s.insertSheet("Settings");var m=s.getSheetByName("MapData")||s.insertSheet("MapData");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Dept","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,6).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.department||"-",x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));l.clear();l.appendRow(["ID","Time","Action","Item","Details"]);if(d.logs&&d.logs.length)l.getRange(2,1,d.logs.length,5).setValues(d.logs.map(x=>[x.id,x.timestamp,x.action,x.itemName,x.changeDetails]));c.clear();c.appendRow(["Key","Value"]);if(d.logo)c.appendRow(["Logo",d.logo]);if(d.mapImage)c.appendRow(["MapImage",d.mapImage]);m.clear();m.appendRow(["ID","Name","Type","Expiry","X","Y"]);if(d.markers&&d.markers.length)m.getRange(2,1,d.markers.length,6).setValues(d.markers.map(x=>[x.id,x.name,x.type,x.expiry,x.x,x.y]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){try{var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var l=s.getSheetByName("InventoryLogs");var c=s.getSheetByName("Settings");var m=s.getSheetByName("MapData");var inv=[];var tx=[];var logs=[];var logo="";var mapImage="";var markers=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),employeeName:r[1],department:r[2]||"General",items:r[3].toString().split(",").map(x=>{var m=x.trim().match(/^(\\d+)x\\s+(.+)$/);return{itemName:m?m[2]:x.trim(),quantity:m?Number(m[1]):0}}),timestamp:r[4],method:r[5]}));if(l&&l.getLastRow()>1)logs=l.getRange(2,1,l.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),timestamp:r[1],action:r[2],itemName:r[3],changeDetails:r[4]}));if(c&&c.getLastRow()>1){var vals=c.getRange(2,1,c.getLastRow()-1,2).getValues();vals.forEach(r=>{if(r[0]==="Logo")logo=r[1];if(r[0]==="MapImage")mapImage=r[1];});}if(m&&m.getLastRow()>1)markers=m.getRange(2,1,m.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),name:r[1],type:r[2],expiry:r[3],x:Number(r[4]),y:Number(r[5])}));return ContentService.createTextOutput(JSON.stringify({status:"success",inventory:inv,transactions:tx,logs:logs,logo:logo,mapImage:mapImage,markers:markers})).setMimeType(ContentService.MimeType.JSON);}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}}`;
+            // ADDED: Versioning to detect old scripts
+            const GOOGLE_SCRIPT_CODE = `function doPost(e){try{var d=JSON.parse(e.postData.contents);var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory")||s.insertSheet("Inventory");var t=s.getSheetByName("Transactions")||s.insertSheet("Transactions");var l=s.getSheetByName("InventoryLogs")||s.insertSheet("InventoryLogs");var c=s.getSheetByName("Settings")||s.insertSheet("Settings");var m=s.getSheetByName("MapData")||s.insertSheet("MapData");if(d.action==="SYNC"){i.clear();i.appendRow(["ID","Name","Cat","Qty","Unit","Thresh","Last"]);if(d.inventory.length)i.getRange(2,1,d.inventory.length,7).setValues(d.inventory.map(x=>[x.id,x.name,x.category,x.quantity,x.unit,x.threshold,x.lastUpdated]));t.clear();t.appendRow(["ID","Emp","Dept","Items","Time","Method"]);if(d.transactions.length)t.getRange(2,1,d.transactions.length,6).setValues(d.transactions.map(x=>[x.id,x.employeeName,x.department||"-",x.items.map(z=>z.quantity+"x "+z.itemName).join(", "),x.timestamp,x.method]));l.clear();l.appendRow(["ID","Time","Action","Item","Details"]);if(d.logs&&d.logs.length)l.getRange(2,1,d.logs.length,5).setValues(d.logs.map(x=>[x.id,x.timestamp,x.action,x.itemName,x.changeDetails]));c.clear();c.appendRow(["Key","Value"]);if(d.logo)c.appendRow(["Logo",d.logo]);if(d.mapImage)c.appendRow(["MapImage",d.mapImage]);m.clear();m.appendRow(["ID","Name","Type","Expiry","X","Y"]);if(d.markers&&d.markers.length)m.getRange(2,1,d.markers.length,6).setValues(d.markers.map(x=>[x.id,x.name,x.type,x.expiry,x.x,x.y]));return ContentService.createTextOutput(JSON.stringify({status:"success"})).setMimeType(ContentService.MimeType.JSON);}}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}} function doGet(e){try{var s=SpreadsheetApp.getActiveSpreadsheet();var i=s.getSheetByName("Inventory");var t=s.getSheetByName("Transactions");var l=s.getSheetByName("InventoryLogs");var c=s.getSheetByName("Settings");var m=s.getSheetByName("MapData");var inv=[];var tx=[];var logs=[];var logo="";var mapImage="";var markers=[];if(i&&i.getLastRow()>1)inv=i.getRange(2,1,i.getLastRow()-1,7).getValues().map(r=>({id:String(r[0]),name:r[1],category:r[2],quantity:Number(r[3]),unit:r[4],threshold:Number(r[5]),lastUpdated:r[6]}));if(t&&t.getLastRow()>1)tx=t.getRange(2,1,t.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),employeeName:r[1],department:r[2]||"General",items:r[3].toString().split(",").map(x=>{var m=x.trim().match(/^(\\d+)x\\s+(.+)$/);return{itemName:m?m[2]:x.trim(),quantity:m?Number(m[1]):0}}),timestamp:r[4],method:r[5]}));if(l&&l.getLastRow()>1)logs=l.getRange(2,1,l.getLastRow()-1,5).getValues().map(r=>({id:String(r[0]),timestamp:r[1],action:r[2],itemName:r[3],changeDetails:r[4]}));if(c&&c.getLastRow()>1){var vals=c.getRange(2,1,c.getLastRow()-1,2).getValues();vals.forEach(r=>{if(r[0]==="Logo")logo=r[1];if(r[0]==="MapImage")mapImage=r[1];});}if(m&&m.getLastRow()>1)markers=m.getRange(2,1,m.getLastRow()-1,6).getValues().map(r=>({id:Number(r[0]),name:r[1],type:r[2],expiry:r[3],x:Number(r[4]),y:Number(r[5])}));return ContentService.createTextOutput(JSON.stringify({status:"success",version:"2.0",inventory:inv,transactions:tx,logs:logs,logo:logo,mapImage:mapImage,markers:markers})).setMimeType(ContentService.MimeType.JSON);}catch(e){return ContentService.createTextOutput(JSON.stringify({status:"error",message:e.toString()})).setMimeType(ContentService.MimeType.JSON);}}`;
 
             const parseInventory = (text) => {
                 const lines = text.trim().split('\n');
@@ -1168,7 +1187,7 @@
                          </button>
                          {showGuide && (
                              <div className="bg-indigo-50 border border-indigo-100 p-4 rounded text-sm text-slate-700 space-y-2 mb-6">
-                                <p><strong>⚠️ Sync Issues?</strong> Check these steps:</p>
+                                <p><strong>⚠️ Critical Update:</strong> You MUST update your script.</p>
                                 <p>1. Copy the code below.</p>
                                 <p>2. Go to Google Sheets &gt; Extensions &gt; Apps Script.</p>
                                 <p>3. Paste code &gt; <strong>Deploy</strong> &gt; <strong>New Deployment</strong> (Select "New version").</p>
@@ -1240,37 +1259,58 @@
                 }
 
                 const cloud = await fetchSheets(settings.sheetUrl);
-                if(cloud && cloud.inventory) {
-                    // FIXED: Sanitize IDs on sync AND Deduplicate
-                    const safeInv = cloud.inventory.map(i => ({...i, id: String(i.id).trim()}));
-                    const uniqueInv = deduplicateInventory(safeInv);
-                    
-                    setInventory(uniqueInv);
-                    setTransactions(cloud.transactions);
-                    if(cloud.logs) {
-                        setInventoryLogs(cloud.logs);
-                        saveData(STORAGE_KEYS.INV_LOGS, cloud.logs);
+                if(cloud) {
+                    // Check for Outdated Script
+                    if(cloud.status === 'success' && cloud.version !== '2.0') {
+                        alert("⚠️ CRITICAL: Your Google Apps Script is outdated and cannot sync the Map. Please go to Settings, copy the new code, and redeploy as a 'New Version'.");
                     }
-                    // IMPORTANT: Only override local map if cloud has a VALID value (not empty string)
-                    if(cloud.mapImage && cloud.mapImage.trim() !== '') {
-                         setMapImage(cloud.mapImage);
-                         saveData(STORAGE_KEYS.MAP_IMG, cloud.mapImage);
+
+                    if (cloud.inventory) {
+                        // FIXED: Sanitize IDs on sync AND Deduplicate
+                        const safeInv = cloud.inventory.map(i => ({...i, id: String(i.id).trim()}));
+                        const uniqueInv = deduplicateInventory(safeInv);
+                        
+                        setInventory(uniqueInv);
+                        setTransactions(cloud.transactions);
+                        if(cloud.logs) {
+                            setInventoryLogs(cloud.logs);
+                            saveData(STORAGE_KEYS.INV_LOGS, cloud.logs);
+                        }
+                        
+                        // IMPORTANT: Only override local map if cloud has a VALID value (not empty string)
+                        if(cloud.mapImage && cloud.mapImage.trim() !== '') {
+                             setMapImage(cloud.mapImage);
+                             saveData(STORAGE_KEYS.MAP_IMG, cloud.mapImage);
+                        }
+                        if(cloud.markers) {
+                            setMarkers(cloud.markers);
+                            saveData(STORAGE_KEYS.MAP_MARKERS, cloud.markers);
+                        }
+                        
+                        saveData(STORAGE_KEYS.INVENTORY, uniqueInv);
+                        saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
+                        if(cloud.logo) {
+                            setLogo(cloud.logo);
+                            saveData(STORAGE_KEYS.LOGO, cloud.logo);
+                        }
+                        if(!silent) showNotif('Sync Complete!');
                     }
-                    if(cloud.markers) {
-                        setMarkers(cloud.markers);
-                        saveData(STORAGE_KEYS.MAP_MARKERS, cloud.markers);
-                    }
-                    
-                    saveData(STORAGE_KEYS.INVENTORY, uniqueInv);
-                    saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
-                    if(cloud.logo) {
-                        setLogo(cloud.logo);
-                        saveData(STORAGE_KEYS.LOGO, cloud.logo);
-                    }
-                    if(!silent) showNotif('Sync Complete!');
                 } else {
                     if(!silent) showNotif('Sync Failed');
                 }
+            };
+
+            const updateMap = (newImg, newMarkers) => {
+                const img = newImg !== undefined ? newImg : mapImage;
+                const m = newMarkers !== undefined ? newMarkers : markers;
+                
+                if(newImg !== undefined) { setMapImage(newImg); saveData(STORAGE_KEYS.MAP_IMG, newImg); }
+                if(newMarkers !== undefined) { setMarkers(m); saveData(STORAGE_KEYS.MAP_MARKERS, m); }
+                
+                // AUTO-SYNC: Immediately push map changes to cloud to avoid local-only issues
+                // We use the 'current' inventory state for this sync
+                // Debounce could be added here, but for now we prioritize data safety
+                syncSheets(settings.sheetUrl, inventory, transactions, inventoryLogs, logo, m, img);
             };
 
             // Logs Helper
@@ -1327,6 +1367,11 @@
                 if(s.sheetUrl) {
                     fetchSheets(s.sheetUrl).then(d => {
                         if(d && d.inventory) {
+                            // Version Check
+                            if(d.version !== '2.0') {
+                                console.warn("Cloud script version mismatch. Some features may not sync.");
+                            }
+
                             const safeInv = d.inventory.map(i => ({...i, id: String(i.id).trim()}));
                             const uniqueCloudInv = deduplicateInventory(safeInv);
                             setInventory(uniqueCloudInv);
@@ -1561,10 +1606,8 @@
                             {view === 'MAP' && (
                                 <MapView 
                                     mapImage={mapImage}
-                                    setMapImage={setMapImage}
                                     markers={markers}
-                                    setMarkers={setMarkers}
-                                    saveData={saveData}
+                                    updateMap={updateMap}
                                 />
                             )}
                             {view === 'HISTORY' && (
