@@ -72,6 +72,10 @@
         // 🟢 PASTE YOUR GOOGLE APPS SCRIPT WEB APP URL BELOW TO SAVE IT PERMANENTLY
         const DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwOZmGh-Re8CJWOAcJr_wILy_P8bzfHOkc-xz6R9SASaVnUYPrgT93TQzbofhgrnd-C/exec"; 
 
+        // 🟢 PASTE YOUR MAP IMAGE URL BELOW (Direct Link)
+        // Example: "https://i.imgur.com/yourmap.jpg"
+        const DEFAULT_MAP_URL = "https://ik.imagekit.io/DannyMD27/Bekasi%20Mill%20Layout.png?updatedAt=1764841975885"; 
+
         // --- ICONS ---
         const Icons = {
             Dashboard: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="7" height="9" x="3" y="3"/><rect width="7" height="5" x="14" y="3"/><rect width="7" height="9" x="14" y="12"/><rect width="7" height="5" x="3" y="16"/></svg>,
@@ -1256,7 +1260,7 @@
                 setSettings(s);
                 // Load saved data
                 setLogo(localStorage.getItem(STORAGE_KEYS.LOGO));
-                setMapImage(localStorage.getItem(STORAGE_KEYS.MAP_IMG));
+                setMapImage(localStorage.getItem(STORAGE_KEYS.MAP_IMG) || DEFAULT_MAP_URL);
                 setMarkers(safeParse(STORAGE_KEYS.MAP_MARKERS, []));
 
                 const loadedInv = safeParse(STORAGE_KEYS.INVENTORY, [
