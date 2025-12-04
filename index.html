@@ -138,7 +138,8 @@
         const fetchSheets = async (url) => {
             if(!url) return null;
             try {
-                const res = await fetch(`${url}?action=GET_DATA`);
+                // ADDED: Cache buster &t=... to prevent browser from serving old data
+                const res = await fetch(`${url}?action=GET_DATA&t=${Date.now()}`);
                 const data = await res.json();
                 return data.status === 'success' ? data : null;
             } catch(e) { 
@@ -1167,13 +1168,11 @@
                          </button>
                          {showGuide && (
                              <div className="bg-indigo-50 border border-indigo-100 p-4 rounded text-sm text-slate-700 space-y-2 mb-6">
-                                <p><strong>1. Get Code:</strong> Copy the code below.</p>
-                                <p><strong>2. Google Sheets:</strong> Extensions &gt; Apps Script.</p>
-                                <p><strong>3. Paste & Deploy:</strong> Paste code (Updated!). Click Deploy &gt; New Deployment.</p>
-                                <p className="pl-4 border-l-2 border-indigo-300">
-                                    Type: <strong>Web App</strong> | Access: <strong>Anyone</strong> (Critical!)
-                                </p>
-                                <p><strong>4. Connect:</strong> Paste the Web App URL below.</p>
+                                <p><strong>⚠️ Sync Issues?</strong> Check these steps:</p>
+                                <p>1. Copy the code below.</p>
+                                <p>2. Go to Google Sheets &gt; Extensions &gt; Apps Script.</p>
+                                <p>3. Paste code &gt; <strong>Deploy</strong> &gt; <strong>New Deployment</strong> (Select "New version").</p>
+                                <p>4. Ensure access is set to <strong>"Anyone"</strong>.</p>
                              </div>
                          )}
                          <div className="bg-slate-900 text-slate-300 p-3 rounded font-mono text-xs h-32 overflow-y-auto mb-2 relative">
