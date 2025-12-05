@@ -1337,7 +1337,14 @@
                 }
                 
                 setSettings(s);
-                setLogo(localStorage.getItem(STORAGE_KEYS.LOGO));
+                
+                const savedLogo = localStorage.getItem(STORAGE_KEYS.LOGO);
+                // CLEANUP: Ensure logo isn't "null" or "undefined" string
+                if (savedLogo && savedLogo !== "null" && savedLogo !== "undefined" && savedLogo.length > 100) {
+                     setLogo(savedLogo);
+                } else {
+                     setLogo(null);
+                }
 
                 const savedMap = localStorage.getItem(STORAGE_KEYS.MAP_IMG);
                 if (savedMap && savedMap !== "null" && savedMap !== "undefined" && savedMap.trim() !== "") {
@@ -1535,6 +1542,7 @@
                             <label className="relative cursor-pointer group logo-hover">
                                 <img 
                                     src={logo || `https://ui-avatars.com/api/?name=GC&background=f97316&color=fff&size=128&bold=true`} 
+                                    onError={(e) => { e.currentTarget.onerror = null; e.currentTarget.src = "https://ui-avatars.com/api/?name=GC&background=f97316&color=fff&size=128&bold=true"; }}
                                     className="w-10 h-10 rounded-full bg-white object-contain border-2 border-safety-500" 
                                     alt="Logo"
                                 />
