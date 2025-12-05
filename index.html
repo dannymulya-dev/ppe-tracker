@@ -103,6 +103,11 @@
         // --- SERVICES ---
         const safeParse = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key)) || fallback; } catch { return fallback; } };
         const saveData = (key, data) => localStorage.setItem(key, JSON.stringify(data));
+        
+        // Validate Image Data URL
+        const isValidLogo = (str) => {
+            return typeof str === 'string' && str.startsWith('data:image') && str.length > 50;
+        };
 
         // NEW: Deduplication Logic
         const deduplicateInventory = (items) => {
@@ -1281,7 +1286,8 @@
                         
                         saveData(STORAGE_KEYS.INVENTORY, uniqueInv);
                         saveData(STORAGE_KEYS.TRANSACTIONS, cloud.transactions);
-                        if(cloud.logo) {
+                        // FIXED: Added validation check for logo from cloud
+                        if(cloud.logo && isValidLogo(cloud.logo)) {
                             setLogo(cloud.logo);
                             saveData(STORAGE_KEYS.LOGO, cloud.logo);
                         }
@@ -1339,8 +1345,8 @@
                 setSettings(s);
                 
                 const savedLogo = localStorage.getItem(STORAGE_KEYS.LOGO);
-                // CLEANUP: Ensure logo isn't "null" or "undefined" string
-                if (savedLogo && savedLogo !== "null" && savedLogo !== "undefined" && savedLogo.length > 100) {
+                // FIXED: Use isValidLogo helper
+                if (isValidLogo(savedLogo)) {
                      setLogo(savedLogo);
                 } else {
                      setLogo(null);
@@ -1388,7 +1394,8 @@
                             }
                             saveData(STORAGE_KEYS.INVENTORY, uniqueCloudInv);
                             saveData(STORAGE_KEYS.TRANSACTIONS, d.transactions);
-                            if(d.logo) {
+                            // FIXED: Added validation check for logo from cloud
+                            if(d.logo && isValidLogo(d.logo)) {
                                 setLogo(d.logo);
                                 saveData(STORAGE_KEYS.LOGO, d.logo);
                             }
@@ -1519,9 +1526,18 @@
                             ctx.drawImage(img, 0, 0, w, h);
                             
                             const base64 = canvas.toDataURL('image/png');
-                            setLogo(base64);
-                            localStorage.setItem(STORAGE_KEYS.LOGO, base64);
-                            showNotif('Logo Updated & Resized');
+                            
+                            // FIXED: Added strict check & immediate cloud push
+                            if(isValidLogo(base64)) {
+                                setLogo(base64);
+                                localStorage.setItem(STORAGE_KEYS.LOGO, base64);
+                                showNotif('Logo Updated (Saving to Cloud...)');
+                                
+                                // FORCE PUSH TO CLOUD NOW to prevent next-load overwrite
+                                syncSheets(settings.sheetUrl, inventory, transactions, inventoryLogs, base64, markers, mapImage);
+                            } else {
+                                alert("Failed to process image.");
+                            }
                         };
                         img.src = reader.result;
                     };
