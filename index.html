@@ -1318,10 +1318,19 @@
 
             useEffect(() => {
                 const s = safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' });
-                
-                if (!s.sheetUrl && DEFAULT_WEB_APP_URL) {
+                const lastDefault = localStorage.getItem('ppe_default_url_ref');
+
+                // --- SMART UPDATE LOGIC ---
+                // If the DEFAULT_WEB_APP_URL in code has changed since last load, force update the setting.
+                if (DEFAULT_WEB_APP_URL && DEFAULT_WEB_APP_URL !== lastDefault) {
                     s.sheetUrl = DEFAULT_WEB_APP_URL;
                     saveData(STORAGE_KEYS.SETTINGS, s);
+                    localStorage.setItem('ppe_default_url_ref', DEFAULT_WEB_APP_URL);
+                } else if (!s.sheetUrl && DEFAULT_WEB_APP_URL) {
+                    // Fallback for first run if no reference exists yet
+                    s.sheetUrl = DEFAULT_WEB_APP_URL;
+                    saveData(STORAGE_KEYS.SETTINGS, s);
+                    localStorage.setItem('ppe_default_url_ref', DEFAULT_WEB_APP_URL);
                 }
                 
                 setSettings(s);
