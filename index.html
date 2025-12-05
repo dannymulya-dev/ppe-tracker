@@ -1317,20 +1317,23 @@
             };
 
             useEffect(() => {
-                const s = safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' });
-                const lastDefault = localStorage.getItem('ppe_default_url_ref');
+                let s = safeParse(STORAGE_KEYS.SETTINGS, { apiKey: '', sheetUrl: '' });
+                const lastKnownDefault = localStorage.getItem('ppe_app_version_ref');
 
-                // --- SMART UPDATE LOGIC ---
-                // If the DEFAULT_WEB_APP_URL in code has changed since last load, force update the setting.
-                if (DEFAULT_WEB_APP_URL && DEFAULT_WEB_APP_URL !== lastDefault) {
+                // FORCE UPDATE LOGIC:
+                // If the code's DEFAULT_WEB_APP_URL is different from the last saved version reference,
+                // we force overwrite the settings with the new hardcoded URL.
+                if (DEFAULT_WEB_APP_URL && DEFAULT_WEB_APP_URL !== lastKnownDefault) {
+                    console.log("App Version Change Detected: Forcing new Web App URL");
                     s.sheetUrl = DEFAULT_WEB_APP_URL;
                     saveData(STORAGE_KEYS.SETTINGS, s);
-                    localStorage.setItem('ppe_default_url_ref', DEFAULT_WEB_APP_URL);
-                } else if (!s.sheetUrl && DEFAULT_WEB_APP_URL) {
-                    // Fallback for first run if no reference exists yet
+                    localStorage.setItem('ppe_app_version_ref', DEFAULT_WEB_APP_URL);
+                } 
+                // Fallback for first run
+                else if (!s.sheetUrl && DEFAULT_WEB_APP_URL) {
                     s.sheetUrl = DEFAULT_WEB_APP_URL;
                     saveData(STORAGE_KEYS.SETTINGS, s);
-                    localStorage.setItem('ppe_default_url_ref', DEFAULT_WEB_APP_URL);
+                    localStorage.setItem('ppe_app_version_ref', DEFAULT_WEB_APP_URL);
                 }
                 
                 setSettings(s);
@@ -1651,6 +1654,7 @@
                     
                     {notify && <div className="fixed top-4 right-4 bg-emerald-600 text-white px-6 py-3 rounded shadow-lg animate-bounce z-50">{notify}</div>}
                     
+                    {/* KEY ADDED HERE: Forces reset when modal opens or item changes */}
                     <InventoryModal 
                         key={modalOpen ? (editItem ? editItem.id : 'new') : 'closed'}
                         isOpen={modalOpen} 
