@@ -282,19 +282,50 @@
         // --- COMPONENTS ---
 
         const SimpleChart = ({ data }) => {
-            const max = Math.max(...data.map(i=>i.quantity), 1);
+            // Sort: Low stock first, then alphabetically
+            const sorted = useMemo(() => {
+                return [...data].sort((a, b) => {
+                    // Sort by status (low stock first)
+                    const aLow = a.quantity <= a.threshold;
+                    const bLow = b.quantity <= b.threshold;
+                    if (aLow && !bLow) return -1;
+                    if (!aLow && bLow) return 1;
+                    // Then by name
+                    return a.name.localeCompare(b.name);
+                });
+            }, [data]);
+
+            if (data.length === 0) return <div className="p-4 text-center text-slate-400 text-sm">No inventory data available.</div>;
+
             return (
-                <div className="h-48 flex items-end gap-2 w-full pt-8 pb-2 overflow-x-auto">
-                    {data.map(i => {
-                        const h = (i.quantity / max) * 100;
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 max-h-[400px] overflow-y-auto pr-1">
+                    {sorted.map(i => {
                         const isLow = i.quantity <= i.threshold;
+                        // Determine progress bar width based on quantity vs threshold
+                        const safeThreshold = i.threshold || 1;
+                        const pct = Math.min(100, (i.quantity / (safeThreshold * 3)) * 100);
+
                         return (
-                            <div key={i.id} className="flex-1 min-w-[40px] h-full flex flex-col justify-end group relative">
-                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
-                                    {i.name}: {i.quantity}
+                            <div key={i.id} className={`p-3 rounded-lg border flex flex-col justify-between ${isLow ? 'bg-red-50 border-red-200 shadow-sm' : 'bg-white border-slate-100 hover:border-slate-300'}`}>
+                                <div className="flex justify-between items-start mb-2 gap-2">
+                                    <div className="font-bold text-xs text-slate-700 line-clamp-2 leading-tight" title={i.name}>{i.name}</div>
+                                    {isLow && <div className="w-2 h-2 rounded-full bg-red-500 shrink-0 animate-pulse"></div>}
                                 </div>
-                                <div style={{height: `${h}%`}} className={`w-full rounded-t ${isLow ? 'bg-red-500' : 'bg-safety-500'} opacity-80 group-hover:opacity-100 transition-all`}></div>
-                                <div className="text-[10px] text-slate-400 mt-1 truncate text-center">{i.name.substring(0,6)}..</div>
+                                <div>
+                                    <div className="flex items-baseline justify-between mb-1">
+                                        <span className={`text-xl font-bold leading-none ${isLow ? 'text-red-600' : 'text-slate-800'}`}>{i.quantity}</span>
+                                        <span className="text-[10px] text-slate-400 uppercase">{i.unit}</span>
+                                    </div>
+                                    
+                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all duration-500 ${isLow ? 'bg-red-500' : 'bg-emerald-500'}`} style={{ width: `${pct}%` }}></div>
+                                    </div>
+                                    
+                                    <div className="flex justify-between items-center mt-1">
+                                        <span className="text-[9px] text-slate-400">Min: {i.threshold}</span>
+                                        <span className={`text-[9px] font-bold ${isLow ? 'text-red-600' : 'text-emerald-600'}`}>{isLow ? 'LOW' : 'OK'}</span>
+                                    </div>
+                                </div>
                             </div>
                         );
                     })}
