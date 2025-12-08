@@ -1763,13 +1763,44 @@
                                                 </div>
                                             </div>
                                             {filteredTransactions.map(t=>(
-                                                <div key={t.id} className="bg-white p-4 rounded border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-sm">
-                                                    <div>
-                                                        <div className="font-bold">{t.employeeName} <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded ml-2">{t.department}</span></div>
-                                                        <div className="text-xs text-slate-400 mt-1">{new Date(t.timestamp).toLocaleString()} &bull; {t.method}</div>
+                                                <div key={t.id} className="bg-white p-4 rounded border flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:shadow-sm group relative">
+                                                    <div className="flex-1">
+                                                        <div className="font-bold flex items-center gap-2">
+                                                            {t.employeeName} 
+                                                            <span className="text-xs font-normal text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{t.department || '-'}</span>
+                                                        </div>
+                                                        <div className="text-xs text-slate-400 mt-1 flex gap-2">
+                                                            <span>{new Date(t.timestamp).toLocaleString()}</span>
+                                                            <span>&bull;</span>
+                                                            <span>{t.method}</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        {t.items.map((i,k)=><div key={k} className="text-sm">{i.quantity}x <span className="font-medium">{i.itemName}</span></div>)}
+                                                    
+                                                    <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
+                                                        <div className="text-right">
+                                                            {t.items.map((i,k)=>(
+                                                                <div key={k} className="text-sm">
+                                                                    <span className="font-mono font-bold">{i.quantity}x</span> <span className="font-medium">{i.itemName}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                        
+                                                        <div className="flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                                                            <button 
+                                                                onClick={() => { setEditTx(t); setTxModalOpen(true); }} 
+                                                                className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors" 
+                                                                title="Edit Record"
+                                                            >
+                                                                <Icons.Edit />
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => deleteTx(t.id)} 
+                                                                className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors" 
+                                                                title="Delete Record"
+                                                            >
+                                                                <Icons.Trash />
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             ))}
