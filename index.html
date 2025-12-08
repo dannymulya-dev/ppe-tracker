@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -333,7 +332,7 @@
                         canvas.height = h;
                         ctx.drawImage(img, 0, 0, w, h);
                         const base64 = canvas.toDataURL('image/jpeg', 0.6); // Medium quality compression
-                        updateMap(base64, undefined);
+                        updateMap({ mapImage: base64 });
                     };
                     img.src = evt.target.result;
                 };
@@ -343,7 +342,7 @@
             const handleUrlSubmit = (e) => {
                 e.preventDefault();
                 if(urlInput) {
-                    updateMap(urlInput, undefined);
+                    updateMap({ mapImage: urlInput });
                     setUrlInput('');
                 }
             };
@@ -364,7 +363,7 @@
                     x, y
                 };
                 const updated = [...markers, newMarker];
-                updateMap(undefined, updated);
+                updateMap({ markers: updated });
             };
 
             const handleMouseMove = (e) => {
@@ -392,21 +391,21 @@
 
             const handleMouseUp = () => {
                 if(draggingId) {
-                    updateMap(undefined, localMarkers);
+                    updateMap({ markers: localMarkers });
                     setDraggingId(null);
                 }
             };
 
             const saveMarkerDetails = (id, name, type, expiry) => {
                 const updated = localMarkers.map(m => m.id === id ? { ...m, name, type, expiry } : m);
-                updateMap(undefined, updated);
+                updateMap({ markers: updated });
                 setEditMarker(null);
             };
 
             const deleteMarker = (id) => {
                 if(confirm("Remove this extinguisher?")) {
                     const updated = localMarkers.filter(m => m.id !== id);
-                    updateMap(undefined, updated);
+                    updateMap({ markers: updated });
                     setEditMarker(null);
                 }
             };
@@ -414,7 +413,7 @@
             const resetMap = () => {
                 if(confirm("Reset map to default configuration?")) {
                     setImgError(false);
-                    updateMap(DEFAULT_MAP_URL, undefined);
+                    updateMap({ mapImage: DEFAULT_MAP_URL });
                 }
             };
 
