@@ -70,6 +70,8 @@
         // --- CONFIGURATION ---
         const DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwiQzTXUQ8qBIAqoRIn7FrAXcyAgVLmIYiKMZAz1q6rBXfGrgmpYBcMdptHbbdChO_U/exec"; 
         const DEFAULT_MAP_URL = "https://ik.imagekit.io/DannyMD27/Bekasi%20Mill%20Layout.png?updatedAt=1764841975885"; 
+        // CHANGE THIS URL TO YOUR INDUCTION VIDEO
+        const DEFAULT_INDUCTION_VIDEO = "https://drive.google.com/file/d/166InqCung_R9pzWAfMWqmg2l3__cFxgb/view?usp=drivesdk"; 
 
         // --- ERROR BOUNDARY COMPONENT ---
         class ErrorBoundary extends Component {
@@ -1551,6 +1553,13 @@
                     saveData(STORAGE_KEYS.SETTINGS, s);
                     localStorage.setItem('ppe_app_version_ref', DEFAULT_WEB_APP_URL);
                 }
+
+                // --- NEW LOGIC FOR DEFAULT INDUCTION VIDEO ---
+                if (!s.inductionVideo && DEFAULT_INDUCTION_VIDEO) {
+                    s.inductionVideo = DEFAULT_INDUCTION_VIDEO;
+                    saveData(STORAGE_KEYS.SETTINGS, s);
+                }
+
                 setSettings(s);
                 
                 const savedLogo = localStorage.getItem(STORAGE_KEYS.LOGO);
