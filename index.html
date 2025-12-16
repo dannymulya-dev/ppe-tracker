@@ -70,7 +70,6 @@
         // --- CONFIGURATION ---
         const DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbwiQzTXUQ8qBIAqoRIn7FrAXcyAgVLmIYiKMZAz1q6rBXfGrgmpYBcMdptHbbdChO_U/exec"; 
         const DEFAULT_MAP_URL = "https://ik.imagekit.io/DannyMD27/Bekasi%20Mill%20Layout.png?updatedAt=1764841975885"; 
-        // CHANGE THIS URL TO YOUR INDUCTION VIDEO
         const DEFAULT_INDUCTION_VIDEO = "https://drive.google.com/file/d/166InqCung_R9pzWAfMWqmg2l3__cFxgb/view?usp=drivesdk"; 
 
         // --- ERROR BOUNDARY COMPONENT ---
@@ -1306,12 +1305,44 @@
         };
 
         const InductionView = ({ videoUrl }) => {
-            const getEmbedUrl = (url) => { if(!url) return null; if(url.includes('youtube')||url.includes('youtu.be')) { const id=url.split('v=')[1]||url.split('/').pop(); return `https://www.youtube.com/embed/${id.split('&')[0]}`; } return url; };
+            const getEmbedUrl = (url) => { 
+                if(!url) return null; 
+                
+                // YouTube Logic
+                if(url.includes('youtube')||url.includes('youtu.be')) { 
+                    const id=url.split('v=')[1]||url.split('/').pop(); 
+                    return `https://www.youtube.com/embed/${id.split('&')[0]}`; 
+                } 
+                
+                // Google Drive Logic
+                if (url.includes('drive.google.com')) {
+                    // Convert .../view to .../preview for proper embedding
+                    return url.replace(/\/view.*/, '/preview');
+                }
+
+                return url; 
+            };
+            
             const src = getEmbedUrl(videoUrl);
             return (
                 <div className="animate-fade-in flex flex-col items-center justify-center min-h-[500px] text-center">
                     <div className="w-full max-w-4xl bg-black rounded-xl overflow-hidden shadow-2xl relative aspect-video video-container">
-                        {src ? <iframe src={src} frameBorder="0" allowFullScreen></iframe> : <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500"><Icons.Video className="w-16 h-16 mb-4 opacity-50"/><p>No video URL configured.</p></div>}
+                        {src ? (
+                            <iframe 
+                                src={src} 
+                                className="w-full h-full absolute inset-0"
+                                title="Safety Induction Video"
+                                frameBorder="0" 
+                                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+                                referrerPolicy="strict-origin-when-cross-origin"
+                                allowFullScreen
+                            ></iframe>
+                        ) : (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-500">
+                                <Icons.Video className="w-16 h-16 mb-4 opacity-50"/>
+                                <p>No video URL configured.</p>
+                            </div>
+                        )}
                     </div>
                 </div>
             );
